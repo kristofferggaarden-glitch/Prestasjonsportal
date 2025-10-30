@@ -1,0 +1,80 @@
+<Application x:Class="ABBsPrestasjonsportal.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <!-- ABB Colors -->
+        <Color x:Key="ABBRed">#FF000F</Color>
+        <Color x:Key="ABBPurple">#6764F6</Color>
+        <Color x:Key="ABBBlue">#004C97</Color>
+        <Color x:Key="ABBGreen">#007A33</Color>
+        <Color x:Key="Gold">#FFD700</Color>
+        <Color x:Key="Silver">#C0C0C0</Color>
+        <Color x:Key="Bronze">#CD7F32</Color>
+        
+        <!-- Brushes -->
+        <SolidColorBrush x:Key="ABBRedBrush" Color="{StaticResource ABBRed}"/>
+        <SolidColorBrush x:Key="ABBPurpleBrush" Color="{StaticResource ABBPurple}"/>
+        <SolidColorBrush x:Key="ABBBlueBrush" Color="{StaticResource ABBBlue}"/>
+        <SolidColorBrush x:Key="ABBGreenBrush" Color="{StaticResource ABBGreen}"/>
+        <SolidColorBrush x:Key="GoldBrush" Color="{StaticResource Gold}"/>
+        <SolidColorBrush x:Key="SilverBrush" Color="{StaticResource Silver}"/>
+        <SolidColorBrush x:Key="BronzeBrush" Color="{StaticResource Bronze}"/>
+        
+        <!-- Text Styles -->
+        <Style x:Key="HeaderText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        
+        <Style x:Key="SubHeaderText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#333333"/>
+        </Style>
+        
+        <!-- Card Style -->
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="15"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="Gray" Direction="315" ShadowDepth="2" Opacity="0.3" BlurRadius="5"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Modern Button Style -->
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource ABBPurpleBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="15,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="0.9"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Opacity" Value="0.8"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Application.Resources>
+</Application>
