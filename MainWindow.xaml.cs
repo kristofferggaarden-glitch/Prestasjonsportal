@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 using ABBsPrestasjonsportal.Services;
 
@@ -82,7 +83,7 @@ namespace ABBsPrestasjonsportal
             {
                 SyncStatusText.Text = "❌ Frakoblet";
                 SyncStatusText.Foreground = System.Windows.Media.Brushes.Red;
-                MessageBox.Show($"Kunne ikke koble til Firebase. Sjekk internettforbindelse og Firebase URL.\n\nFeil: {ex.Message}", 
+                MessageBox.Show($"Kunne ikke koble til Firebase. Sjekk internettforbindelse og Firebase URL.\n\nFeil: {ex.Message}",
                     "Tilkoblingsfeil", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
@@ -153,16 +154,16 @@ namespace ABBsPrestasjonsportal
         {
             var sampleEmployees = new List<Employee>
             {
-                new Employee { Id = 1, Name = "Kristoffer Gaarden", Email = "kristoffer.gaarden@no.abb.com", Department = "IT" },
-                new Employee { Id = 2, Name = "Ole Nordmann", Email = "ole.nordmann@no.abb.com", Department = "Salg" },
-                new Employee { Id = 3, Name = "Kari Nordmann", Email = "kari.nordmann@no.abb.com", Department = "HR" }
+                new Employee { Id = 1, Name = "Kristoffer Gaarden", Department = "IT" },
+                new Employee { Id = 2, Name = "Ole Nordmann", Department = "Salg" },
+                new Employee { Id = 3, Name = "Kari Nordmann", Department = "HR" }
             };
 
             var sampleExercises = new List<Exercise>
             {
-                new Exercise { Id = 1, Name = "3000m løping", Type = "Løping", Unit = "Tid (mm:ss)" },
+                new Exercise { Id = 1, Name = "3000m løping", Type = "Løping", Unit = "Tid (TT:MM:SS)" },
                 new Exercise { Id = 2, Name = "Benkpress", Type = "Styrke", Unit = "Vekt (kg)" },
-                new Exercise { Id = 3, Name = "10km løping", Type = "Løping", Unit = "Tid (mm:ss)" }
+                new Exercise { Id = 3, Name = "10km løping", Type = "Løping", Unit = "Tid (TT:MM:SS)" }
             };
 
             foreach (var emp in sampleEmployees)
@@ -195,7 +196,7 @@ namespace ABBsPrestasjonsportal
         {
             ResultEmployeeCombo.ItemsSource = employees;
             ResultEmployeeCombo.DisplayMemberPath = "Name";
-            
+
             ResultExerciseCombo.ItemsSource = exercises;
             ResultExerciseCombo.DisplayMemberPath = "Name";
         }
@@ -226,19 +227,19 @@ namespace ABBsPrestasjonsportal
         private List<TopListEntry> CalculateTopList()
         {
             var topList = new List<TopListEntry>();
-            
+
             foreach (var employee in employees)
             {
                 var employeeResults = results.Where(r => r.EmployeeId == employee.Id).ToList();
                 int totalPoints = 0;
-                
+
                 // Calculate points for each exercise
                 foreach (var exercise in exercises)
                 {
                     var exerciseResults = results.Where(r => r.ExerciseId == exercise.Id)
                                                  .OrderByDescending(r => GetResultScore(r, exercise))
                                                  .ToList();
-                    
+
                     var employeeResult = exerciseResults.FirstOrDefault(r => r.EmployeeId == employee.Id);
                     if (employeeResult != null)
                     {
@@ -247,7 +248,7 @@ namespace ABBsPrestasjonsportal
                         totalPoints += points;
                     }
                 }
-                
+
                 topList.Add(new TopListEntry
                 {
                     Name = employee.Name,
@@ -256,14 +257,14 @@ namespace ABBsPrestasjonsportal
                     TotalPoints = totalPoints
                 });
             }
-            
+
             // Sort and add rank
             topList = topList.OrderByDescending(t => t.TotalPoints).ToList();
             for (int i = 0; i < topList.Count; i++)
             {
                 topList[i].Rank = i + 1;
             }
-            
+
             return topList;
         }
 
@@ -286,16 +287,30 @@ namespace ABBsPrestasjonsportal
 
         private double ParseTime(string time)
         {
-            // Parse time format mm:ss to seconds
+            // Parse time format TT:MM:SS or MM:SS to seconds
             var parts = time.Split(':');
-            if (parts.Length == 2)
+
+            if (parts.Length == 3)
             {
-                if (int.TryParse(parts[0], out int minutes) && int.TryParse(parts[1], out int seconds))
+                // TT:MM:SS format
+                if (int.TryParse(parts[0], out int hours) &&
+                    int.TryParse(parts[1], out int minutes) &&
+                    int.TryParse(parts[2], out int seconds))
+                {
+                    return hours * 3600 + minutes * 60 + seconds;
+                }
+            }
+            else if (parts.Length == 2)
+            {
+                // MM:SS format
+                if (int.TryParse(parts[0], out int minutes) &&
+                    int.TryParse(parts[1], out int seconds))
                 {
                     return minutes * 60 + seconds;
                 }
             }
-            return 9999;
+
+            return 999999;
         }
 
         private int CalculatePoints(int position, int totalParticipants)
@@ -329,6 +344,7 @@ namespace ABBsPrestasjonsportal
         {
             HideAllViews();
             EmployeesView.Visibility = Visibility.Visible;
+            NewEmployeeName.Focus();
         }
 
         private void BtnExercises_Click(object sender, RoutedEventArgs e)
@@ -354,6 +370,11 @@ namespace ABBsPrestasjonsportal
         // Employee Management
         private async void AddEmployee_Click(object sender, RoutedEventArgs e)
         {
+            await AddEmployeeAsync();
+        }
+
+        private async Task AddEmployeeAsync()
+        {
             if (string.IsNullOrWhiteSpace(NewEmployeeName.Text))
             {
                 MessageBox.Show("Vennligst fyll inn navn", "Feil", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -364,17 +385,30 @@ namespace ABBsPrestasjonsportal
             {
                 Id = employees.Count > 0 ? employees.Max(e => e.Id) + 1 : 1,
                 Name = NewEmployeeName.Text,
-                Email = NewEmployeeEmail.Text,
                 Department = (DepartmentCombo.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Ukjent"
             };
 
             await firebaseService.AddEmployeeAsync(employee);
-            
+
             NewEmployeeName.Clear();
-            NewEmployeeEmail.Clear();
             DepartmentCombo.SelectedIndex = -1;
-            
-            MessageBox.Show($"Ansatt {employee.Name} lagt til!", "Suksess", MessageBoxButton.OK, MessageBoxImage.Information);
+            NewEmployeeName.Focus();
+        }
+
+        private void NewEmployeeName_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                _ = AddEmployeeAsync();
+            }
+        }
+
+        private void DepartmentCombo_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                _ = AddEmployeeAsync();
+            }
         }
 
         private async void DeleteEmployee_Click(object sender, RoutedEventArgs e)
@@ -382,7 +416,7 @@ namespace ABBsPrestasjonsportal
             var button = sender as Button;
             if (button?.Tag is Employee employee)
             {
-                if (MessageBox.Show($"Er du sikker på at du vil slette {employee.Name}?", "Bekreft sletting", 
+                if (MessageBox.Show($"Er du sikker på at du vil slette {employee.Name}?", "Bekreft sletting",
                     MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
                 {
                     await firebaseService.DeleteEmployeeAsync(employee.FirebaseKey);
@@ -409,12 +443,10 @@ namespace ABBsPrestasjonsportal
             };
 
             await firebaseService.AddExerciseAsync(exercise);
-            
+
             NewExerciseName.Clear();
             ExerciseTypeCombo.SelectedIndex = -1;
             ExerciseUnitCombo.SelectedIndex = -1;
-            
-            MessageBox.Show($"Øvelse {exercise.Name} lagt til!", "Suksess", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private async void DeleteExercise_Click(object sender, RoutedEventArgs e)
@@ -422,7 +454,7 @@ namespace ABBsPrestasjonsportal
             var button = sender as Button;
             if (button?.Tag is Exercise exercise)
             {
-                if (MessageBox.Show($"Er du sikker på at du vil slette {exercise.Name}?", "Bekreft sletting", 
+                if (MessageBox.Show($"Er du sikker på at du vil slette {exercise.Name}?", "Bekreft sletting",
                     MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
                 {
                     await firebaseService.DeleteExerciseAsync(exercise.FirebaseKey);
@@ -434,7 +466,7 @@ namespace ABBsPrestasjonsportal
         // Result Management
         private async void AddResult_Click(object sender, RoutedEventArgs e)
         {
-            if (ResultEmployeeCombo.SelectedItem == null || ResultExerciseCombo.SelectedItem == null || 
+            if (ResultEmployeeCombo.SelectedItem == null || ResultExerciseCombo.SelectedItem == null ||
                 string.IsNullOrWhiteSpace(ResultValue.Text))
             {
                 MessageBox.Show("Vennligst fyll inn alle felt", "Feil", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -443,6 +475,11 @@ namespace ABBsPrestasjonsportal
 
             var employee = ResultEmployeeCombo.SelectedItem as Employee;
             var exercise = ResultExerciseCombo.SelectedItem as Exercise;
+
+            // Calculate position and points
+            var exerciseResults = results.Where(r => r.ExerciseId == exercise.Id)
+                                         .OrderByDescending(r => GetResultScore(r, exercise))
+                                         .ToList();
 
             var result = new Result
             {
@@ -453,16 +490,27 @@ namespace ABBsPrestasjonsportal
                 ExerciseName = exercise.Name,
                 Value = ResultValue.Text,
                 Date = DateTime.Now,
-                Points = 0 // Will be calculated
+                Points = 0
             };
 
+            // Calculate what position this result would have
+            var tempScore = GetResultScore(result, exercise);
+            int position = 1;
+            foreach (var existingResult in exerciseResults)
+            {
+                if (GetResultScore(existingResult, exercise) > tempScore)
+                    position++;
+                else
+                    break;
+            }
+
+            result.Points = CalculatePoints(position, exerciseResults.Count + 1);
+
             await firebaseService.AddResultAsync(result);
-            
+
             ResultEmployeeCombo.SelectedIndex = -1;
             ResultExerciseCombo.SelectedIndex = -1;
             ResultValue.Clear();
-            
-            MessageBox.Show("Resultat registrert!", "Suksess", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -474,9 +522,8 @@ namespace ABBsPrestasjonsportal
             }
             else
             {
-                var filtered = employees.Where(emp => 
-                    emp.Name.ToLower().Contains(searchText) || 
-                    emp.Email.ToLower().Contains(searchText) ||
+                var filtered = employees.Where(emp =>
+                    emp.Name.ToLower().Contains(searchText) ||
                     emp.Department.ToLower().Contains(searchText)).ToList();
                 EmployeesGrid.ItemsSource = filtered;
             }

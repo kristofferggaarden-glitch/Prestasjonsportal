@@ -11,7 +11,7 @@ namespace ABBsPrestasjonsportal.Services
     public class FirebaseService
     {
         // BYTT UT DENNE URL-EN MED DIN EGEN FIREBASE URL
-        private const string FirebaseDatabaseUrl = "https://ditt-prosjekt-default-rtdb.europe-west1.firebasedatabase.app/";
+        private const string FirebaseDatabaseUrl = "https://abbs-prestasjonsportal-default-rtdb.europe-west1.firebasedatabase.app/";
         private FirebaseClient client;
 
         public FirebaseService()
@@ -35,8 +35,8 @@ namespace ABBsPrestasjonsportal.Services
                 var employees = await client
                     .Child("employees")
                     .OnceAsync<Employee>();
-                
-                return employees.Select(e => 
+
+                return employees.Select(e =>
                 {
                     e.Object.FirebaseKey = e.Key;
                     return e.Object;
@@ -53,7 +53,7 @@ namespace ABBsPrestasjonsportal.Services
             var result = await client
                 .Child("employees")
                 .PostAsync(employee);
-            
+
             employee.FirebaseKey = result.Key;
             return employee;
         }
@@ -88,8 +88,8 @@ namespace ABBsPrestasjonsportal.Services
                 var exercises = await client
                     .Child("exercises")
                     .OnceAsync<Exercise>();
-                
-                return exercises.Select(e => 
+
+                return exercises.Select(e =>
                 {
                     e.Object.FirebaseKey = e.Key;
                     return e.Object;
@@ -106,7 +106,7 @@ namespace ABBsPrestasjonsportal.Services
             var result = await client
                 .Child("exercises")
                 .PostAsync(exercise);
-            
+
             exercise.FirebaseKey = result.Key;
             return exercise;
         }
@@ -141,8 +141,8 @@ namespace ABBsPrestasjonsportal.Services
                 var results = await client
                     .Child("results")
                     .OnceAsync<Result>();
-                
-                return results.Select(r => 
+
+                return results.Select(r =>
                 {
                     r.Object.FirebaseKey = r.Key;
                     return r.Object;
@@ -159,7 +159,7 @@ namespace ABBsPrestasjonsportal.Services
             var resultObj = await client
                 .Child("results")
                 .PostAsync(result);
-            
+
             result.FirebaseKey = resultObj.Key;
             return result;
         }
@@ -240,7 +240,6 @@ namespace ABBsPrestasjonsportal.Services
         public string FirebaseKey { get; set; }
         public int Id { get; set; }
         public string Name { get; set; }
-        public string Email { get; set; }
         public string Department { get; set; }
     }
 
