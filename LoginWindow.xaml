@@ -1,0 +1,103 @@
+﻿<Window x:Class="ABBsPrestasjonsportal.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ABBs Prestasjonsportal - Innlogging" 
+        Height="588" Width="500"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="#F5F5F5">
+
+    <Grid Margin="0,0,0,-190">
+        <Border Background="White" 
+                CornerRadius="10" 
+                Margin="50,50,50,223"
+                Padding="40">
+            <Border.Effect>
+                <DropShadowEffect Color="Gray" Direction="315" ShadowDepth="5" Opacity="0.3" BlurRadius="10"/>
+            </Border.Effect>
+
+            <StackPanel>
+                <TextBlock Text="⚡" 
+                          FontSize="48" 
+                          HorizontalAlignment="Center" 
+                          Foreground="#FF000F"
+                          Margin="0,0,0,10"/>
+
+                <TextBlock Text="ABBs Prestasjonsportal" 
+                          FontSize="20" 
+                          FontWeight="Bold" 
+                          HorizontalAlignment="Center"
+                          Foreground="#333"
+                          Margin="0,0,0,30"/>
+
+                <TextBlock Text="Brukernavn" 
+                          FontWeight="SemiBold" 
+                          Margin="0,0,0,5"/>
+                <TextBox x:Name="UsernameBox" 
+                        Padding="10" 
+                        FontSize="14"
+                        KeyDown="Input_KeyDown"
+                        Margin="0,0,0,15"/>
+
+                <TextBlock Text="Passord" 
+                          FontWeight="SemiBold" 
+                          Margin="0,0,0,5"/>
+                <PasswordBox x:Name="PasswordBox" 
+                            Padding="10" 
+                            FontSize="14"
+                            KeyDown="Input_KeyDown"
+                            Margin="0,0,0,20"/>
+
+                <TextBlock x:Name="ErrorText" 
+                          Text="" 
+                          Foreground="Red" 
+                          TextAlignment="Center"
+                          Margin="0,0,0,10"
+                          TextWrapping="Wrap"/>
+
+                <Button Content="Logg inn" 
+                       Click="LoginButton_Click"
+                       Background="#6764F6"
+                       Foreground="White"
+                       Padding="15,10"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       BorderThickness="0"
+                       Cursor="Hand">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" 
+                                               CornerRadius="5"
+                                               Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" 
+                                                            VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.9"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <TextBlock Text="Standard bruker: bruker / passord123" 
+                          FontSize="11" 
+                          Foreground="Gray"
+                          TextAlignment="Center"
+                          Margin="0,20,0,0"/>
+                <TextBlock Text="Admin: admin / admin123" 
+                          FontSize="11" 
+                          Foreground="Gray"
+                          TextAlignment="Center"
+                          Margin="0,5,0,0"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

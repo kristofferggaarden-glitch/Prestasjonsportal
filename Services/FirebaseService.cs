@@ -233,7 +233,7 @@ namespace ABBsPrestasjonsportal.Services
         }
     }
 
-    // Updated Model classes with Firebase support
+    // Model classes
     public class Employee
     {
         [JsonIgnore]
@@ -241,6 +241,10 @@ namespace ABBsPrestasjonsportal.Services
         public int Id { get; set; }
         public string Name { get; set; }
         public string Department { get; set; }
+        [JsonIgnore]
+        public int TotalPoints { get; set; }
+        [JsonIgnore]
+        public string Badges { get; set; }
     }
 
     public class Exercise
@@ -264,6 +268,7 @@ namespace ABBsPrestasjonsportal.Services
         public string ExerciseName { get; set; }
         public string Value { get; set; }
         public DateTime Date { get; set; }
+        public string Status { get; set; } = "Pending";
         public int Points { get; set; }
     }
 }

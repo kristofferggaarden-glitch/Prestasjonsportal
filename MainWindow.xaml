@@ -40,16 +40,17 @@
                     <TextBlock Text="ABBs Prestasjonsportal" Style="{StaticResource HeaderText}" VerticalAlignment="Center"/>
                 </StackPanel>
 
-                <TextBlock Grid.Column="2" x:Name="DateTimeText" 
-                          Foreground="White" VerticalAlignment="Center" 
-                          Margin="20,0" FontSize="14"/>
+                <StackPanel Grid.Column="2" Orientation="Vertical" VerticalAlignment="Center" Margin="20,0">
+                    <TextBlock x:Name="UserText" Foreground="White" FontSize="12" HorizontalAlignment="Right"/>
+                    <TextBlock x:Name="DateTimeText" Foreground="White" FontSize="14" HorizontalAlignment="Right"/>
+                </StackPanel>
             </Grid>
         </Border>
 
         <!-- Main Content -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="220"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
@@ -65,20 +66,47 @@
                             Background="{StaticResource ABBRedBrush}"
                             Margin="0,5" Click="BtnTopList_Click"/>
 
+                    <Button x:Name="BtnDepartments" Content="🏢 Avdelinger" 
+                            Style="{StaticResource ModernButton}"
+                            Background="{StaticResource ABBPurpleBrush}"
+                            Margin="0,5" Click="BtnDepartments_Click"/>
+
                     <Button x:Name="BtnEmployees" Content="👥 Ansatte" 
                             Style="{StaticResource ModernButton}"
                             Background="{StaticResource ABBBlueBrush}"
                             Margin="0,5" Click="BtnEmployees_Click"/>
 
-                    <Button x:Name="BtnExercises" Content="💪 Øvelser" 
-                            Style="{StaticResource ModernButton}"
-                            Background="{StaticResource ABBPurpleBrush}"
-                            Margin="0,5" Click="BtnExercises_Click"/>
-
                     <Button x:Name="BtnResults" Content="📊 Resultater" 
                             Style="{StaticResource ModernButton}"
                             Background="{StaticResource ABBGreenBrush}"
                             Margin="0,5" Click="BtnResults_Click"/>
+
+                    <Button x:Name="BtnAchievements" Content="🏅 Achievements" 
+                            Style="{StaticResource ModernButton}"
+                            Background="{StaticResource GoldBrush}"
+                            Margin="0,5" Click="BtnAchievements_Click"/>
+
+                    <Button x:Name="BtnPending" Content="⏳ Godkjenninger" 
+                            Style="{StaticResource ModernButton}"
+                            Background="#FF6B6B"
+                            Margin="0,5" Click="BtnPending_Click"
+                            Visibility="Collapsed"/>
+
+                    <Button x:Name="BtnPaceCalc" Content="⏱️ Pace Kalkulator" 
+                            Style="{StaticResource ModernButton}"
+                            Background="{StaticResource ABBBlueBrush}"
+                            Margin="0,5" Click="BtnPaceCalc_Click"/>
+
+                    <Button x:Name="BtnPointSystem" Content="📋 Poengsystem" 
+                            Style="{StaticResource ModernButton}"
+                            Background="{StaticResource ABBGreenBrush}"
+                            Margin="0,5" Click="BtnPointSystem_Click"/>
+
+                    <Button x:Name="BtnSettings" Content="⚙️ Innstillinger" 
+                            Style="{StaticResource ModernButton}"
+                            Background="#666666"
+                            Margin="0,5" Click="BtnSettings_Click"
+                            Visibility="Collapsed"/>
 
                     <Separator Margin="0,20"/>
 
@@ -86,6 +114,7 @@
                     <TextBlock x:Name="TotalEmployeesText" Text="Ansatte: 0" Margin="0,2"/>
                     <TextBlock x:Name="TotalExercisesText" Text="Øvelser: 0" Margin="0,2"/>
                     <TextBlock x:Name="TotalResultsText" Text="Resultater: 0" Margin="0,2"/>
+                    <TextBlock x:Name="PendingCountText" Text="Ventende: 0" Margin="0,2" Foreground="Red" Visibility="Collapsed"/>
 
                     <Separator Margin="0,20"/>
 
@@ -95,331 +124,471 @@
             </Border>
 
             <!-- Content Area -->
-            <Grid Grid.Column="1" Margin="20">
-                <!-- Top List View -->
-                <Grid x:Name="TopListView" Visibility="Visible">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="200"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                <Grid Margin="20">
+                    <!-- Top List View -->
+                    <Grid x:Name="TopListView" Visibility="Visible">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="200"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="🏆 Toppliste - Totale Prestasjoner" 
-                              Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
+                        <TextBlock Grid.Row="0" Text="🏆 Toppliste - Totale Prestasjoner" 
+                                  Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
 
-                    <!-- Podium -->
-                    <Grid Grid.Row="1" HorizontalAlignment="Center">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="150"/>
-                            <ColumnDefinition Width="150"/>
-                            <ColumnDefinition Width="150"/>
-                        </Grid.ColumnDefinitions>
+                        <!-- Podium -->
+                        <Grid Grid.Row="1" HorizontalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="150"/>
+                            </Grid.ColumnDefinitions>
 
-                        <!-- Silver (2nd place) -->
-                        <Border Grid.Column="0" Style="{StaticResource Card}" 
-                                Height="140" VerticalAlignment="Bottom" Margin="5">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#E0E0E0" Offset="0"/>
-                                    <GradientStop Color="{StaticResource Silver}" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="🥈" FontSize="48" HorizontalAlignment="Center"/>
-                                <TextBlock x:Name="Silver_Name" Text="-" HorizontalAlignment="Center" FontWeight="Bold"/>
-                                <TextBlock x:Name="Silver_Points" Text="0 poeng" HorizontalAlignment="Center"/>
+                            <!-- Silver -->
+                            <Border Grid.Column="0" Style="{StaticResource Card}" 
+                                    Height="140" VerticalAlignment="Bottom" Margin="5">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#E0E0E0" Offset="0"/>
+                                        <GradientStop Color="{StaticResource Silver}" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="🥈" FontSize="48" HorizontalAlignment="Center"/>
+                                    <TextBlock x:Name="Silver_Name" Text="-" HorizontalAlignment="Center" 
+                                              FontWeight="Bold" TextWrapping="Wrap" TextAlignment="Center" 
+                                              Margin="5,5,5,0" FontSize="12"/>
+                                    <TextBlock x:Name="Silver_Points" Text="0 poeng" HorizontalAlignment="Center" FontSize="11"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Gold -->
+                            <Border Grid.Column="1" Style="{StaticResource Card}" 
+                                    Height="170" VerticalAlignment="Bottom" Margin="5">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#FFF8DC" Offset="0"/>
+                                        <GradientStop Color="{StaticResource Gold}" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="🥇" FontSize="56" HorizontalAlignment="Center"/>
+                                    <TextBlock x:Name="Gold_Name" Text="-" HorizontalAlignment="Center" 
+                                              FontWeight="Bold" FontSize="14" TextWrapping="Wrap" 
+                                              TextAlignment="Center" Margin="5,5,5,0" MaxWidth="160"/>
+                                    <TextBlock x:Name="Gold_Points" Text="0 poeng" HorizontalAlignment="Center" FontSize="13"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Bronze -->
+                            <Border Grid.Column="2" Style="{StaticResource Card}" 
+                                    Height="120" VerticalAlignment="Bottom" Margin="5">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#F4E4C1" Offset="0"/>
+                                        <GradientStop Color="{StaticResource Bronze}" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="🥉" FontSize="40" HorizontalAlignment="Center"/>
+                                    <TextBlock x:Name="Bronze_Name" Text="-" HorizontalAlignment="Center" 
+                                              FontWeight="Bold" TextWrapping="Wrap" TextAlignment="Center" 
+                                              Margin="5,5,5,0" FontSize="12"/>
+                                    <TextBlock x:Name="Bronze_Points" Text="0 poeng" HorizontalAlignment="Center" FontSize="11"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- Full Ranking -->
+                        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,20,0,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Full Rangering" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                                <DataGrid Grid.Row="1" x:Name="TopListGrid" 
+                                         AutoGenerateColumns="False" 
+                                         CanUserAddRows="False"
+                                         GridLinesVisibility="None"
+                                         HeadersVisibility="Column">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Rang" Binding="{Binding Rank}" Width="60"/>
+                                        <DataGridTextColumn Header="Navn" Binding="{Binding Name}" Width="200"/>
+                                        <DataGridTextColumn Header="Avdeling" Binding="{Binding Department}" Width="150"/>
+                                        <DataGridTextColumn Header="Achievements" Binding="{Binding Badges}" Width="100"/>
+                                        <DataGridTextColumn Header="Total Poeng" Binding="{Binding TotalPoints}" Width="100">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="FontWeight" Value="Bold"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Department Comparison View -->
+                    <Grid x:Name="DepartmentsView" Visibility="Collapsed">
+                        <Border Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="🏢 Avdelings-sammenligning" 
+                                          Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
+
+                                <DataGrid Grid.Row="1" x:Name="DepartmentGrid" 
+                                         AutoGenerateColumns="False" 
+                                         CanUserAddRows="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Rang" Binding="{Binding Rank}" Width="60"/>
+                                        <DataGridTextColumn Header="Avdeling" Binding="{Binding Department}" Width="200"/>
+                                        <DataGridTextColumn Header="Deltakere" Binding="{Binding ParticipantCount}" Width="100"/>
+                                        <DataGridTextColumn Header="Total Poeng" Binding="{Binding TotalPoints}" Width="120"/>
+                                        <DataGridTextColumn Header="Gjennomsnitt" Binding="{Binding AvgPoints}" Width="120"/>
+                                        <DataGridTextColumn Header="Score %" Binding="{Binding ScorePercent}" Width="100">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="FontWeight" Value="Bold"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource ABBGreenBrush}"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Employees View -->
+                    <Grid x:Name="EmployeesView" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="👥 Ansatte" Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
+
+                        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="Legg til ny ansatt" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="300"/>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Navn" FontWeight="SemiBold" Margin="0,0,5,5"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Avdeling" FontWeight="SemiBold" Margin="0,0,5,5"/>
+
+                                    <TextBox x:Name="NewEmployeeName" Grid.Row="1" Grid.Column="0" 
+                                            Margin="0,0,5,0" Padding="5"
+                                            KeyDown="NewEmployeeName_KeyDown"/>
+                                    <ComboBox x:Name="DepartmentCombo" Grid.Row="1" Grid.Column="1" 
+                                             Margin="0,0,5,0" Padding="5"
+                                             KeyDown="DepartmentCombo_KeyDown">
+                                        <ComboBoxItem>Spesialmontasjen</ComboBoxItem>
+                                        <ComboBoxItem>Salg</ComboBoxItem>
+                                        <ComboBoxItem>HR</ComboBoxItem>
+                                        <ComboBoxItem>Produksjon Syd</ComboBoxItem>
+                                        <ComboBoxItem>Kiosk</ComboBoxItem>
+                                        <ComboBoxItem>Økonomi</ComboBoxItem>
+                                        <ComboBoxItem>Engineering</ComboBoxItem>
+                                        <ComboBoxItem>CCRP</ComboBoxItem>
+                                        <ComboBoxItem>IT</ComboBoxItem>
+                                        <ComboBoxItem>Ordrekontor</ComboBoxItem>
+                                        <ComboBoxItem>Shipping</ComboBoxItem>
+                                    </ComboBox>
+                                    <Button Grid.Row="1" Grid.Column="2" Content="➕ Legg til" 
+                                           Style="{StaticResource ModernButton}"
+                                           Click="AddEmployee_Click"/>
+                                </Grid>
                             </StackPanel>
                         </Border>
 
-                        <!-- Gold (1st place) -->
-                        <Border Grid.Column="1" Style="{StaticResource Card}" 
-                                Height="160" VerticalAlignment="Bottom" Margin="5">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#FFF8DC" Offset="0"/>
-                                    <GradientStop Color="{StaticResource Gold}" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="🥇" FontSize="56" HorizontalAlignment="Center"/>
-                                <TextBlock x:Name="Gold_Name" Text="-" HorizontalAlignment="Center" FontWeight="Bold" FontSize="16"/>
-                                <TextBlock x:Name="Gold_Points" Text="0 poeng" HorizontalAlignment="Center" FontSize="14"/>
+                        <Border Grid.Row="2" Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Ansattliste" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                                <DataGrid Grid.Row="1" x:Name="EmployeesGrid" 
+                                         AutoGenerateColumns="False" 
+                                         CanUserAddRows="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50"/>
+                                        <DataGridTextColumn Header="Navn" Binding="{Binding Name}" Width="250"/>
+                                        <DataGridTextColumn Header="Avdeling" Binding="{Binding Department}" Width="150"/>
+                                        <DataGridTextColumn Header="Poeng" Binding="{Binding TotalPoints}" Width="100"/>
+                                        <DataGridTextColumn Header="Achievements" Binding="{Binding Badges}" Width="100"/>
+                                        <DataGridTemplateColumn Header="Handlinger" Width="100">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Button x:Name="DeleteBtn" Content="🗑️ Slett" Click="DeleteEmployee_Click" 
+                                                           Tag="{Binding}" Padding="5,2"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Results View - Combined Exercises and Results -->
+                    <Grid x:Name="ResultsView" Visibility="Collapsed">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="📊 Resultater" Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
+
+                        <!-- Add Exercise -->
+                        <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="Legg til ny øvelse" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="300"/>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBox x:Name="NewExerciseName" Grid.Column="0" 
+                                            Tag="Øvelsesnavn" Margin="0,0,5,0" Padding="5"/>
+                                    <ComboBox x:Name="ExerciseTypeCombo" Grid.Column="1" 
+                                             Margin="0,0,5,0" Padding="5">
+                                        <ComboBoxItem>Styrke (kg)</ComboBoxItem>
+                                        <ComboBoxItem>Repetisjoner (reps)</ComboBoxItem>
+                                        <ComboBoxItem>Tid (TT:MM:SS)</ComboBoxItem>
+                                        <ComboBoxItem>Løping (TT:MM:SS)</ComboBoxItem>
+                                        <ComboBoxItem>Distanse (m)</ComboBoxItem>
+                                        <ComboBoxItem>Annet</ComboBoxItem>
+                                    </ComboBox>
+                                    <Button Grid.Column="2" Content="➕ Legg til øvelse" 
+                                           Style="{StaticResource ModernButton}"
+                                           Click="AddExercise_Click"/>
+                                </Grid>
                             </StackPanel>
                         </Border>
 
-                        <!-- Bronze (3rd place) -->
-                        <Border Grid.Column="2" Style="{StaticResource Card}" 
-                                Height="120" VerticalAlignment="Bottom" Margin="5">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                    <GradientStop Color="#F4E4C1" Offset="0"/>
-                                    <GradientStop Color="{StaticResource Bronze}" Offset="1"/>
-                                </LinearGradientBrush>
-                            </Border.Background>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="🥉" FontSize="40" HorizontalAlignment="Center"/>
-                                <TextBlock x:Name="Bronze_Name" Text="-" HorizontalAlignment="Center" FontWeight="Bold"/>
-                                <TextBlock x:Name="Bronze_Points" Text="0 poeng" HorizontalAlignment="Center"/>
+                        <!-- Add Result -->
+                        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="Registrer resultat" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="150"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Navn" FontWeight="SemiBold" Margin="0,0,5,5"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Øvelse" FontWeight="SemiBold" Margin="0,0,5,5"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="2" x:Name="ResultLabel" Text="Resultat" FontWeight="SemiBold" Margin="0,0,5,5"/>
+
+                                    <ComboBox x:Name="ResultEmployeeCombo" Grid.Row="1" Grid.Column="0" 
+                                             Margin="0,0,5,0" Padding="5"/>
+                                    <ComboBox x:Name="ResultExerciseCombo" Grid.Row="1" Grid.Column="1" 
+                                             Margin="0,0,5,0" Padding="5"
+                                             SelectionChanged="ResultExerciseCombo_SelectionChanged"/>
+                                    <TextBox x:Name="ResultValue" Grid.Row="1" Grid.Column="2" 
+                                            Margin="0,0,5,0" Padding="5"
+                                            KeyDown="ResultValue_KeyDown"/>
+                                    <Button Grid.Row="1" Grid.Column="3" Content="➕ Registrer" 
+                                           Style="{StaticResource ModernButton}"
+                                           Click="AddResult_Click"/>
+                                </Grid>
+                                <TextBlock x:Name="ResultHintText" Text="" Margin="0,5,0,0" FontStyle="Italic" Foreground="Gray"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Results Grid -->
+                        <Border Grid.Row="3" Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="Oversikt - Alle resultater" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                                <DataGrid Grid.Row="1" x:Name="CombinedGrid" 
+                                         AutoGenerateColumns="False" 
+                                         CanUserAddRows="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Øvelse" Binding="{Binding ExerciseName}" Width="180"/>
+                                        <DataGridTextColumn Header="Type" Binding="{Binding ExerciseType}" Width="100"/>
+                                        <DataGridTextColumn Header="Ansatt" Binding="{Binding EmployeeName}" Width="150"/>
+                                        <DataGridTextColumn Header="Resultat" Binding="{Binding Value}" Width="90"/>
+                                        <DataGridTextColumn Header="Pace" Binding="{Binding Pace}" Width="80"/>
+                                        <DataGridTextColumn Header="Dato" Binding="{Binding Date, StringFormat='{}{0:dd.MM.yyyy}'}" Width="90"/>
+                                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="90"/>
+                                        <DataGridTextColumn Header="Poeng" Binding="{Binding Points}" Width="70">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="FontWeight" Value="Bold"/>
+                                                    <Setter Property="Foreground" Value="{StaticResource ABBGreenBrush}"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Achievements View -->
+                    <Grid x:Name="AchievementsView" Visibility="Collapsed">
+                        <Border Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="🏅 Achievements og Badges" 
+                                          Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
+
+                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                    <StackPanel x:Name="AchievementsPanel">
+                                        <!-- Achievements will be dynamically added here -->
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Pending Approvals View (Admin Only) -->
+                    <Grid x:Name="PendingView" Visibility="Collapsed">
+                        <Border Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="⏳ Ventende godkjenninger" 
+                                          Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
+
+                                <DataGrid Grid.Row="1" x:Name="PendingGrid" 
+                                         AutoGenerateColumns="False" 
+                                         CanUserAddRows="False">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Ansatt" Binding="{Binding EmployeeName}" Width="150"/>
+                                        <DataGridTextColumn Header="Øvelse" Binding="{Binding ExerciseName}" Width="150"/>
+                                        <DataGridTextColumn Header="Resultat" Binding="{Binding Value}" Width="100"/>
+                                        <DataGridTextColumn Header="Dato" Binding="{Binding Date, StringFormat='{}{0:dd.MM.yyyy HH:mm}'}" Width="140"/>
+                                        <DataGridTemplateColumn Header="Handlinger" Width="200">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Button Content="✅ Godkjenn" Click="ApproveResult_Click" 
+                                                               Tag="{Binding}" Padding="5,2" Margin="0,0,5,0"
+                                                               Background="Green" Foreground="White"/>
+                                                        <Button Content="❌ Avslå" Click="RejectResult_Click" 
+                                                               Tag="{Binding}" Padding="5,2"
+                                                               Background="Red" Foreground="White"/>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Pace Calculator View -->
+                    <Grid x:Name="PaceCalcView" Visibility="Collapsed">
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="⏱️ Pace Kalkulator" 
+                                          Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
+
+                                <!-- Input -->
+                                <Grid Margin="0,0,0,20">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                                        <TextBlock Text="Distanse (km)" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                        <TextBox x:Name="PaceDistance" Padding="5" TextChanged="PaceCalc_Changed"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                        <TextBlock Text="Tid (TT:MM:SS)" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                        <TextBox x:Name="PaceTime" Padding="5" TextChanged="PaceCalc_Changed"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Fart (km/h)" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                        <TextBox x:Name="PaceSpeed" Padding="5" TextChanged="PaceCalc_Changed"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Output -->
+                                <Border Background="#F0F0F0" Padding="20" CornerRadius="5">
+                                    <StackPanel>
+                                        <TextBlock Text="Resultater" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+                                        <TextBlock x:Name="PaceResult1" Text="" FontSize="14" Margin="0,5"/>
+                                        <TextBlock x:Name="PaceResult2" Text="" FontSize="14" Margin="0,5"/>
+                                        <TextBlock x:Name="PaceResult3" Text="" FontSize="14" Margin="0,5"/>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </Border>
                     </Grid>
 
-                    <!-- Full Ranking List -->
-                    <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,20,0,0">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
+                    <!-- Settings View (Admin Only) -->
+                    <Grid x:Name="SettingsView" Visibility="Collapsed">
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="⚙️ Innstillinger" 
+                                          Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
 
-                            <TextBlock Grid.Row="0" Text="Full Rangering" FontWeight="Bold" Margin="0,0,0,10"/>
+                                <TextBlock Text="Minimum deltakere per avdeling" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                <TextBox x:Name="MinParticipantsBox" Text="3" Padding="5" Width="100" HorizontalAlignment="Left"/>
 
-                            <DataGrid Grid.Row="1" x:Name="TopListGrid" 
-                                     AutoGenerateColumns="False" 
-                                     CanUserAddRows="False"
-                                     GridLinesVisibility="None"
-                                     HeadersVisibility="Column">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Rang" Binding="{Binding Rank}" Width="60"/>
-                                    <DataGridTextColumn Header="Navn" Binding="{Binding Name}" Width="200"/>
-                                    <DataGridTextColumn Header="Avdeling" Binding="{Binding Department}" Width="150"/>
-                                    <DataGridTextColumn Header="Antall Øvelser" Binding="{Binding ExerciseCount}" Width="100"/>
-                                    <DataGridTextColumn Header="Total Poeng" Binding="{Binding TotalPoints}" Width="100">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="FontWeight" Value="Bold"/>
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
-                </Grid>
-
-                <!-- Employees View -->
-                <Grid x:Name="EmployeesView" Visibility="Collapsed">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0" Text="👥 Ansatte" Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
-
-                    <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Legg til ny ansatt" FontWeight="Bold" Margin="0,0,0,10"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="250"/>
-                                    <ColumnDefinition Width="200"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Navn" Margin="0,0,5,5" FontWeight="SemiBold"/>
-                                <TextBlock Grid.Row="0" Grid.Column="1" Text="Avdeling" Margin="0,0,5,5" FontWeight="SemiBold"/>
-
-                                <TextBox x:Name="NewEmployeeName" Grid.Row="1" Grid.Column="0" 
-                                        Margin="0,0,5,0" Padding="5" KeyDown="NewEmployeeName_KeyDown"/>
-                                <ComboBox x:Name="DepartmentCombo" Grid.Row="1" Grid.Column="1" 
-                                         Margin="0,0,5,0" Padding="5" KeyDown="DepartmentCombo_KeyDown">
-                                    <ComboBoxItem>IT</ComboBoxItem>
-                                    <ComboBoxItem>Salg</ComboBoxItem>
-                                    <ComboBoxItem>Produksjon</ComboBoxItem>
-                                    <ComboBoxItem>HR</ComboBoxItem>
-                                    <ComboBoxItem>Økonomi</ComboBoxItem>
-                                </ComboBox>
-                                <Button Grid.Row="1" Grid.Column="2" Content="➕ Legg til" 
+                                <Button Content="Lagre innstillinger" 
                                        Style="{StaticResource ModernButton}"
-                                       Click="AddEmployee_Click"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Row="2" Style="{StaticResource Card}">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-
-                            <Grid Grid.Row="0" Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="200"/>
-                                </Grid.ColumnDefinitions>
-
-                                <TextBlock Grid.Column="0" Text="Ansattliste" FontWeight="Bold" VerticalAlignment="Center"/>
-                                <TextBox Grid.Column="1" x:Name="SearchBox" Tag="🔍 Søk..." 
-                                        Padding="5" TextChanged="SearchBox_TextChanged"/>
-                            </Grid>
-
-                            <DataGrid Grid.Row="1" x:Name="EmployeesGrid" 
-                                     AutoGenerateColumns="False" 
-                                     CanUserAddRows="False">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50"/>
-                                    <DataGridTextColumn Header="Navn" Binding="{Binding Name}" Width="300"/>
-                                    <DataGridTextColumn Header="Avdeling" Binding="{Binding Department}" Width="200"/>
-                                    <DataGridTemplateColumn Header="Handlinger" Width="100">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <Button Content="🗑️ Slett" Click="DeleteEmployee_Click" 
-                                                       Tag="{Binding}" Padding="5,2"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
+                                       Click="SaveSettings_Click"
+                                       Margin="0,10,0,0"
+                                       Width="150"
+                                       HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
                 </Grid>
-
-                <!-- Exercises View -->
-                <Grid x:Name="ExercisesView" Visibility="Collapsed">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0" Text="💪 Øvelser" Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
-
-                    <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Legg til ny øvelse" FontWeight="Bold" Margin="0,0,0,10"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="250"/>
-                                    <ColumnDefinition Width="150"/>
-                                    <ColumnDefinition Width="150"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <TextBox x:Name="NewExerciseName" Grid.Column="0" 
-                                        Tag="Øvelsesnavn" Margin="0,0,5,0" Padding="5"/>
-                                <ComboBox x:Name="ExerciseTypeCombo" Grid.Column="1" 
-                                         Margin="0,0,5,0" Padding="5">
-                                    <ComboBoxItem>Løping</ComboBoxItem>
-                                    <ComboBoxItem>Styrke</ComboBoxItem>
-                                    <ComboBoxItem>Kondisjon</ComboBoxItem>
-                                    <ComboBoxItem>Annet</ComboBoxItem>
-                                </ComboBox>
-                                <ComboBox x:Name="ExerciseUnitCombo" Grid.Column="2" 
-                                         Margin="0,0,5,0" Padding="5">
-                                    <ComboBoxItem>Tid (TT:MM:SS)</ComboBoxItem>
-                                    <ComboBoxItem>Vekt (kg)</ComboBoxItem>
-                                    <ComboBoxItem>Repetisjoner</ComboBoxItem>
-                                    <ComboBoxItem>Distanse (m)</ComboBoxItem>
-                                </ComboBox>
-                                <Button Grid.Column="3" Content="➕ Legg til" 
-                                       Style="{StaticResource ModernButton}"
-                                       Click="AddExercise_Click"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Row="2" Style="{StaticResource Card}">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Text="Øvelsesliste" FontWeight="Bold" Margin="0,0,0,10"/>
-
-                            <DataGrid Grid.Row="1" x:Name="ExercisesGrid" 
-                                     AutoGenerateColumns="False" 
-                                     CanUserAddRows="False">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="50"/>
-                                    <DataGridTextColumn Header="Navn" Binding="{Binding Name}" Width="250"/>
-                                    <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="150"/>
-                                    <DataGridTextColumn Header="Enhet" Binding="{Binding Unit}" Width="150"/>
-                                    <DataGridTemplateColumn Header="Handlinger" Width="100">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <Button Content="🗑️ Slett" Click="DeleteExercise_Click" 
-                                                       Tag="{Binding}" Padding="5,2"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
-                </Grid>
-
-                <!-- Results View -->
-                <Grid x:Name="ResultsView" Visibility="Collapsed">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0" Text="📊 Resultater" Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
-
-                    <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,10">
-                        <StackPanel>
-                            <TextBlock Text="Registrer nytt resultat" FontWeight="Bold" Margin="0,0,0,10"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="200"/>
-                                    <ColumnDefinition Width="200"/>
-                                    <ColumnDefinition Width="150"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <ComboBox x:Name="ResultEmployeeCombo" Grid.Column="0" 
-                                         Margin="0,0,5,0" Padding="5"/>
-                                <ComboBox x:Name="ResultExerciseCombo" Grid.Column="1" 
-                                         Margin="0,0,5,0" Padding="5"/>
-                                <TextBox x:Name="ResultValue" Grid.Column="2" 
-                                        Tag="Resultat" Margin="0,0,5,0" Padding="5"/>
-                                <Button Grid.Column="3" Content="➕ Registrer" 
-                                       Style="{StaticResource ModernButton}"
-                                       Click="AddResult_Click"/>
-                            </Grid>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Grid.Row="2" Style="{StaticResource Card}">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.Row="0" Text="Resultatliste" FontWeight="Bold" Margin="0,0,0,10"/>
-
-                            <DataGrid Grid.Row="1" x:Name="ResultsGrid" 
-                                     AutoGenerateColumns="False" 
-                                     CanUserAddRows="False">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Dato" Binding="{Binding Date, StringFormat='{}{0:dd.MM.yyyy}'}" Width="100"/>
-                                    <DataGridTextColumn Header="Ansatt" Binding="{Binding EmployeeName}" Width="200"/>
-                                    <DataGridTextColumn Header="Øvelse" Binding="{Binding ExerciseName}" Width="200"/>
-                                    <DataGridTextColumn Header="Resultat" Binding="{Binding Value}" Width="100"/>
-                                    <DataGridTextColumn Header="Poeng" Binding="{Binding Points}" Width="80">
-                                        <DataGridTextColumn.ElementStyle>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="FontWeight" Value="Bold"/>
-                                                <Setter Property="Foreground" Value="{StaticResource ABBGreenBrush}"/>
-                                            </Style>
-                                        </DataGridTextColumn.ElementStyle>
-                                    </DataGridTextColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
-                </Grid>
-            </Grid>
+            </ScrollViewer>
         </Grid>
     </Grid>
 </Window>

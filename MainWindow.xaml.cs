@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using ABBsPrestasjonsportal.Services;
 
@@ -17,19 +19,53 @@ namespace ABBsPrestasjonsportal
         private ObservableCollection<Employee> employees = new ObservableCollection<Employee>();
         private ObservableCollection<Exercise> exercises = new ObservableCollection<Exercise>();
         private ObservableCollection<Result> results = new ObservableCollection<Result>();
+        private ObservableCollection<CombinedResultView> combinedResults = new ObservableCollection<CombinedResultView>();
         private FirebaseService firebaseService;
         private DispatcherTimer timer;
         private IDisposable employeeListener;
         private IDisposable exerciseListener;
         private IDisposable resultListener;
 
-        public MainWindow()
+        private bool isAdmin;
+        private string currentUser;
+        private int minParticipants = 3;
+
+        public MainWindow(bool admin, string user)
         {
             InitializeComponent();
+
+            isAdmin = admin;
+            currentUser = user;
+
+            // Show/hide admin-only features
+            if (isAdmin)
+            {
+                BtnPending.Visibility = Visibility.Visible;
+                BtnSettings.Visibility = Visibility.Visible;
+                PendingCountText.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                // Hide delete buttons for non-admin
+                EmployeesGrid.Loaded += (s, e) => HideDeleteButtonsForNonAdmin();
+            }
+
+            UserText.Text = $"Innlogget som: {currentUser} {(isAdmin ? "(Admin)" : "")}";
+
             firebaseService = new FirebaseService();
             SetupTimer();
             _ = InitializeDataAsync();
             SetupRealtimeListeners();
+        }
+
+        private void HideDeleteButtonsForNonAdmin()
+        {
+            if (!isAdmin)
+            {
+                var column = EmployeesGrid.Columns.FirstOrDefault(c => c.Header.ToString() == "Handlinger");
+                if (column != null)
+                    column.Visibility = Visibility.Collapsed;
+            }
         }
 
         private async Task InitializeDataAsync()
@@ -37,43 +73,13 @@ namespace ABBsPrestasjonsportal
             try
             {
                 SyncStatusText.Text = "⏳ Synkroniserer...";
-                SyncStatusText.Foreground = System.Windows.Media.Brushes.Orange;
+                SyncStatusText.Foreground = Brushes.Orange;
 
-                // Load data from Firebase
-                var employeesList = await firebaseService.GetEmployeesAsync();
-                var exercisesList = await firebaseService.GetExercisesAsync();
-                var resultsList = await firebaseService.GetResultsAsync();
+                await ReloadAllDataAsync();
 
-                // Update collections on UI thread
-                await Dispatcher.InvokeAsync(() =>
-                {
-                    employees.Clear();
-                    foreach (var emp in employeesList)
-                        employees.Add(emp);
+                SyncStatusText.Text = "✅ Tilkoblet";
+                SyncStatusText.Foreground = Brushes.Green;
 
-                    exercises.Clear();
-                    foreach (var ex in exercisesList)
-                        exercises.Add(ex);
-
-                    results.Clear();
-                    foreach (var res in resultsList)
-                        results.Add(res);
-
-                    // Bind to grids
-                    EmployeesGrid.ItemsSource = employees;
-                    ExercisesGrid.ItemsSource = exercises;
-                    ResultsGrid.ItemsSource = results;
-
-                    // Setup combos
-                    UpdateCombos();
-                    UpdateStatistics();
-                    ShowTopList();
-
-                    SyncStatusText.Text = "✅ Tilkoblet";
-                    SyncStatusText.Foreground = System.Windows.Media.Brushes.Green;
-                });
-
-                // Add sample data if empty (first time setup)
                 if (employees.Count == 0)
                 {
                     await AddSampleDataAsync();
@@ -82,71 +88,91 @@ namespace ABBsPrestasjonsportal
             catch (Exception ex)
             {
                 SyncStatusText.Text = "❌ Frakoblet";
-                SyncStatusText.Foreground = System.Windows.Media.Brushes.Red;
-                MessageBox.Show($"Kunne ikke koble til Firebase. Sjekk internettforbindelse og Firebase URL.\n\nFeil: {ex.Message}",
+                SyncStatusText.Foreground = Brushes.Red;
+                MessageBox.Show($"Kunne ikke koble til Firebase.\n\n{ex.Message}",
                     "Tilkoblingsfeil", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
+        private async Task ReloadAllDataAsync()
+        {
+            var employeesList = await firebaseService.GetEmployeesAsync();
+            var exercisesList = await firebaseService.GetExercisesAsync();
+            var resultsList = await firebaseService.GetResultsAsync();
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                employees.Clear();
+                foreach (var emp in employeesList)
+                {
+                    emp.TotalPoints = CalculateEmployeePoints(emp.Id, resultsList);
+                    emp.Badges = CalculateEmployeeBadges(emp.Id, resultsList, exercisesList);
+                    employees.Add(emp);
+                }
+
+                exercises.Clear();
+                foreach (var ex in exercisesList)
+                    exercises.Add(ex);
+
+                results.Clear();
+                foreach (var res in resultsList)
+                    results.Add(res);
+
+                EmployeesGrid.ItemsSource = employees;
+                CombinedGrid.ItemsSource = combinedResults;
+                PendingGrid.ItemsSource = results.Where(r => r.Status == "Pending");
+
+                UpdateCombos();
+                UpdateStatistics();
+                UpdateCombinedGrid();
+                ShowTopList();
+                UpdateDepartmentComparison();
+                UpdatePendingCount();
+                LoadAchievements();
+            });
+        }
+
+        private int CalculateEmployeePoints(int employeeId, List<Result> allResults)
+        {
+            return allResults.Where(r => r.EmployeeId == employeeId && r.Status == "Approved")
+                            .Sum(r => r.Points);
+        }
+
+        private string CalculateEmployeeBadges(int employeeId, List<Result> allResults, List<Exercise> allExercises)
+        {
+            var badges = new List<string>();
+            var empResults = allResults.Where(r => r.EmployeeId == employeeId && r.Status == "Approved").ToList();
+
+            // First Place badge
+            if (empResults.Count(r => r.Points == 10) >= 3)
+                badges.Add("🥇×3");
+
+            // Versatile badge
+            if (empResults.Select(r => r.ExerciseId).Distinct().Count() >= 5)
+                badges.Add("🌟");
+
+            // Consistency badge
+            if (empResults.Count >= 10)
+                badges.Add("💪");
+
+            return string.Join(" ", badges);
+        }
+
         private void SetupRealtimeListeners()
         {
-            // Listen for real-time updates
             employeeListener = firebaseService.ListenToEmployees(emp =>
             {
-                Dispatcher.Invoke(() =>
-                {
-                    var existing = employees.FirstOrDefault(e => e.FirebaseKey == emp.FirebaseKey);
-                    if (existing == null)
-                    {
-                        employees.Add(emp);
-                    }
-                    else
-                    {
-                        var index = employees.IndexOf(existing);
-                        employees[index] = emp;
-                    }
-                    UpdateStatistics();
-                    UpdateCombos();
-                    ShowTopList();
-                });
+                Dispatcher.Invoke(() => { _ = ReloadAllDataAsync(); });
             });
 
             exerciseListener = firebaseService.ListenToExercises(ex =>
             {
-                Dispatcher.Invoke(() =>
-                {
-                    var existing = exercises.FirstOrDefault(e => e.FirebaseKey == ex.FirebaseKey);
-                    if (existing == null)
-                    {
-                        exercises.Add(ex);
-                    }
-                    else
-                    {
-                        var index = exercises.IndexOf(existing);
-                        exercises[index] = ex;
-                    }
-                    UpdateStatistics();
-                    UpdateCombos();
-                });
+                Dispatcher.Invoke(() => { _ = ReloadAllDataAsync(); });
             });
 
             resultListener = firebaseService.ListenToResults(res =>
             {
-                Dispatcher.Invoke(() =>
-                {
-                    var existing = results.FirstOrDefault(r => r.FirebaseKey == res.FirebaseKey);
-                    if (existing == null)
-                    {
-                        results.Add(res);
-                    }
-                    else
-                    {
-                        var index = results.IndexOf(existing);
-                        results[index] = res;
-                    }
-                    UpdateStatistics();
-                    ShowTopList();
-                });
+                Dispatcher.Invoke(() => { _ = ReloadAllDataAsync(); });
             });
         }
 
@@ -161,9 +187,9 @@ namespace ABBsPrestasjonsportal
 
             var sampleExercises = new List<Exercise>
             {
-                new Exercise { Id = 1, Name = "3000m løping", Type = "Løping", Unit = "Tid (TT:MM:SS)" },
-                new Exercise { Id = 2, Name = "Benkpress", Type = "Styrke", Unit = "Vekt (kg)" },
-                new Exercise { Id = 3, Name = "10km løping", Type = "Løping", Unit = "Tid (TT:MM:SS)" }
+                new Exercise { Id = 1, Name = "3000m løping", Type = "Løping (TT:MM:SS)", Unit = "Løping (TT:MM:SS)" },
+                new Exercise { Id = 2, Name = "Benkpress", Type = "Styrke (kg)", Unit = "Styrke (kg)" },
+                new Exercise { Id = 3, Name = "Pullups", Type = "Repetisjoner (reps)", Unit = "Repetisjoner (reps)" }
             };
 
             foreach (var emp in sampleEmployees)
@@ -189,7 +215,20 @@ namespace ABBsPrestasjonsportal
         {
             TotalEmployeesText.Text = $"Ansatte: {employees.Count}";
             TotalExercisesText.Text = $"Øvelser: {exercises.Count}";
-            TotalResultsText.Text = $"Resultater: {results.Count}";
+            TotalResultsText.Text = $"Resultater: {results.Count(r => r.Status == "Approved")}";
+        }
+
+        private void UpdatePendingCount()
+        {
+            if (isAdmin)
+            {
+                int pending = results.Count(r => r.Status == "Pending");
+                PendingCountText.Text = $"Ventende: {pending}";
+                if (pending > 0)
+                    PendingCountText.Foreground = Brushes.Red;
+                else
+                    PendingCountText.Foreground = Brushes.Green;
+            }
         }
 
         private void UpdateCombos()
@@ -201,12 +240,85 @@ namespace ABBsPrestasjonsportal
             ResultExerciseCombo.DisplayMemberPath = "Name";
         }
 
+        private void UpdateCombinedGrid()
+        {
+            combinedResults.Clear();
+
+            foreach (var result in results.OrderByDescending(r => r.Date))
+            {
+                var employee = employees.FirstOrDefault(e => e.Id == result.EmployeeId);
+                var exercise = exercises.FirstOrDefault(e => e.Id == result.ExerciseId);
+
+                if (employee != null && exercise != null)
+                {
+                    string pace = "";
+                    if (exercise.Type.Contains("Løping") || exercise.Type.Contains("Tid"))
+                    {
+                        pace = CalculatePace(result.Value, exercise.Name);
+                    }
+
+                    combinedResults.Add(new CombinedResultView
+                    {
+                        ResultId = result.Id,
+                        FirebaseKey = result.FirebaseKey,
+                        ExerciseName = exercise.Name,
+                        ExerciseType = exercise.Type,
+                        EmployeeName = employee.Name,
+                        Value = result.Value,
+                        Pace = pace,
+                        Date = result.Date,
+                        Status = result.Status == "Approved" ? "Godkjent" : "Venter",
+                        Points = result.Points
+                    });
+                }
+            }
+        }
+
+        private string CalculatePace(string timeString, string exerciseName)
+        {
+            try
+            {
+                // Extract distance from exercise name if possible
+                var match = Regex.Match(exerciseName, @"(\d+)");
+                if (!match.Success) return "";
+
+                double distanceMeters = double.Parse(match.Value);
+                if (exerciseName.ToLower().Contains("km"))
+                    distanceMeters *= 1000;
+
+                double distanceKm = distanceMeters / 1000.0;
+
+                // Parse time
+                var parts = timeString.Split(':');
+                double totalMinutes = 0;
+
+                if (parts.Length == 3)
+                {
+                    totalMinutes = int.Parse(parts[0]) * 60 + int.Parse(parts[1]) + double.Parse(parts[2]) / 60.0;
+                }
+                else if (parts.Length == 2)
+                {
+                    totalMinutes = int.Parse(parts[0]) + double.Parse(parts[1]) / 60.0;
+                }
+
+                if (distanceKm > 0)
+                {
+                    double paceMinPerKm = totalMinutes / distanceKm;
+                    int min = (int)paceMinPerKm;
+                    int sec = (int)((paceMinPerKm - min) * 60);
+                    return $"{min}:{sec:D2}/km";
+                }
+            }
+            catch { }
+
+            return "";
+        }
+
         private void ShowTopList()
         {
             var topList = CalculateTopList();
             TopListGrid.ItemsSource = topList;
 
-            // Update podium
             if (topList.Count > 0)
             {
                 Gold_Name.Text = topList[0].Name;
@@ -230,13 +342,12 @@ namespace ABBsPrestasjonsportal
 
             foreach (var employee in employees)
             {
-                var employeeResults = results.Where(r => r.EmployeeId == employee.Id).ToList();
+                var employeeResults = results.Where(r => r.EmployeeId == employee.Id && r.Status == "Approved").ToList();
                 int totalPoints = 0;
 
-                // Calculate points for each exercise
                 foreach (var exercise in exercises)
                 {
-                    var exerciseResults = results.Where(r => r.ExerciseId == exercise.Id)
+                    var exerciseResults = results.Where(r => r.ExerciseId == exercise.Id && r.Status == "Approved")
                                                  .OrderByDescending(r => GetResultScore(r, exercise))
                                                  .ToList();
 
@@ -246,6 +357,12 @@ namespace ABBsPrestasjonsportal
                         int position = exerciseResults.IndexOf(employeeResult) + 1;
                         int points = CalculatePoints(position, exerciseResults.Count);
                         totalPoints += points;
+
+                        if (employeeResult.Points != points)
+                        {
+                            employeeResult.Points = points;
+                            _ = firebaseService.UpdateResultAsync(employeeResult);
+                        }
                     }
                 }
 
@@ -253,12 +370,11 @@ namespace ABBsPrestasjonsportal
                 {
                     Name = employee.Name,
                     Department = employee.Department,
-                    ExerciseCount = employeeResults.Select(r => r.ExerciseId).Distinct().Count(),
+                    Badges = employee.Badges,
                     TotalPoints = totalPoints
                 });
             }
 
-            // Sort and add rank
             topList = topList.OrderByDescending(t => t.TotalPoints).ToList();
             for (int i = 0; i < topList.Count; i++)
             {
@@ -268,18 +384,38 @@ namespace ABBsPrestasjonsportal
             return topList;
         }
 
+        private void UpdateDepartmentComparison()
+        {
+            var departments = employees.GroupBy(e => e.Department)
+                                      .Where(g => g.Count() >= minParticipants)
+                                      .Select(g => new DepartmentEntry
+                                      {
+                                          Department = g.Key,
+                                          ParticipantCount = g.Count(),
+                                          TotalPoints = g.Sum(e => e.TotalPoints),
+                                          AvgPoints = g.Average(e => e.TotalPoints),
+                                          ScorePercent = (g.Average(e => e.TotalPoints) / (g.Count() > 0 ? g.Max(e => e.TotalPoints > 0 ? e.TotalPoints : 1) : 1)) * 100
+                                      })
+                                      .OrderByDescending(d => d.ScorePercent)
+                                      .ToList();
+
+            for (int i = 0; i < departments.Count; i++)
+            {
+                departments[i].Rank = i + 1;
+            }
+
+            DepartmentGrid.ItemsSource = departments;
+        }
+
         private double GetResultScore(Result result, Exercise exercise)
         {
-            // Convert result to score (higher is better)
-            if (exercise.Unit.Contains("Tid"))
+            if (exercise.Type.Contains("Tid") || exercise.Type.Contains("Løping"))
             {
-                // For time, lower is better, so invert
                 return 10000.0 / ParseTime(result.Value);
             }
             else
             {
-                // For weight, reps, distance - higher is better
-                if (double.TryParse(result.Value, out double value))
+                if (double.TryParse(result.Value.Replace(',', '.'), out double value))
                     return value;
             }
             return 0;
@@ -287,12 +423,9 @@ namespace ABBsPrestasjonsportal
 
         private double ParseTime(string time)
         {
-            // Parse time format TT:MM:SS or MM:SS to seconds
             var parts = time.Split(':');
-
             if (parts.Length == 3)
             {
-                // TT:MM:SS format
                 if (int.TryParse(parts[0], out int hours) &&
                     int.TryParse(parts[1], out int minutes) &&
                     int.TryParse(parts[2], out int seconds))
@@ -302,33 +435,92 @@ namespace ABBsPrestasjonsportal
             }
             else if (parts.Length == 2)
             {
-                // MM:SS format
                 if (int.TryParse(parts[0], out int minutes) &&
                     int.TryParse(parts[1], out int seconds))
                 {
                     return minutes * 60 + seconds;
                 }
             }
-
-            return 999999;
+            return 9999;
         }
 
         private int CalculatePoints(int position, int totalParticipants)
         {
-            // Points system
             switch (position)
             {
-                case 1: return 100;
-                case 2: return 80;
-                case 3: return 60;
-                case 4: return 50;
-                case 5: return 40;
-                case 6: return 30;
-                case 7: return 20;
-                case 8: return 15;
-                case 9: return 10;
-                case 10: return 5;
+                case 1: return 10;
+                case 2: return 6;
+                case 3: return 4;
+                case 4: return 3;
+                case 5: return 2;
                 default: return 1;
+            }
+        }
+
+        private bool ValidateResultValue(string value, string exerciseType)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            if (exerciseType.Contains("Tid") || exerciseType.Contains("Løping"))
+            {
+                var timeRegex = new Regex(@"^(\d{1,2}):([0-5][0-9]):([0-5][0-9])$");
+                return timeRegex.IsMatch(value);
+            }
+            else if (exerciseType.Contains("Styrke") || exerciseType.Contains("Repetisjoner") || exerciseType.Contains("Distanse"))
+            {
+                var numberRegex = new Regex(@"^(\d+)([.,]\d+)?$");
+                return numberRegex.IsMatch(value);
+            }
+            else
+            {
+                return true;
+            }
+        }
+
+        private void LoadAchievements()
+        {
+            AchievementsPanel.Children.Clear();
+
+            var achievements = new List<Achievement>
+            {
+                new Achievement { Icon = "🥇", Name = "Triple Gold", Description = "Få 1. plass i 3 forskjellige øvelser", Points = "3×10p" },
+                new Achievement { Icon = "🌟", Name = "Allsidig", Description = "Delta i 5 eller flere forskjellige øvelser", Points = "Bonus" },
+                new Achievement { Icon = "💪", Name = "Dedikert", Description = "Registrer 10 eller flere resultater", Points = "Bonus" },
+                new Achievement { Icon = "🔥", Name = "På topp", Description = "Hold 1. plass i 7 dager", Points = "Kommende" },
+                new Achievement { Icon = "🚀", Name = "Comeback", Description = "Forbedre ditt eget resultat med 20%", Points = "Kommende" }
+            };
+
+            foreach (var ach in achievements)
+            {
+                var border = new Border
+                {
+                    Style = (Style)FindResource("Card"),
+                    Margin = new Thickness(0, 0, 0, 10)
+                };
+
+                var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var icon = new TextBlock { Text = ach.Icon, FontSize = 36, VerticalAlignment = VerticalAlignment.Center };
+                Grid.SetColumn(icon, 0);
+
+                var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+                Grid.SetColumn(stack, 1);
+                stack.Children.Add(new TextBlock { Text = ach.Name, FontWeight = FontWeights.Bold, FontSize = 16 });
+                stack.Children.Add(new TextBlock { Text = ach.Description, Foreground = Brushes.Gray });
+
+                var points = new TextBlock { Text = ach.Points, FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center };
+                Grid.SetColumn(points, 2);
+
+                grid.Children.Add(icon);
+                grid.Children.Add(stack);
+                grid.Children.Add(points);
+                border.Child = grid;
+
+                AchievementsPanel.Children.Add(border);
             }
         }
 
@@ -340,17 +532,18 @@ namespace ABBsPrestasjonsportal
             ShowTopList();
         }
 
+        private void BtnDepartments_Click(object sender, RoutedEventArgs e)
+        {
+            HideAllViews();
+            DepartmentsView.Visibility = Visibility.Visible;
+            UpdateDepartmentComparison();
+        }
+
         private void BtnEmployees_Click(object sender, RoutedEventArgs e)
         {
             HideAllViews();
             EmployeesView.Visibility = Visibility.Visible;
             NewEmployeeName.Focus();
-        }
-
-        private void BtnExercises_Click(object sender, RoutedEventArgs e)
-        {
-            HideAllViews();
-            ExercisesView.Visibility = Visibility.Visible;
         }
 
         private void BtnResults_Click(object sender, RoutedEventArgs e)
@@ -359,33 +552,100 @@ namespace ABBsPrestasjonsportal
             ResultsView.Visibility = Visibility.Visible;
         }
 
+        private void BtnAchievements_Click(object sender, RoutedEventArgs e)
+        {
+            HideAllViews();
+            AchievementsView.Visibility = Visibility.Visible;
+            LoadAchievements();
+        }
+
+        private void BtnPending_Click(object sender, RoutedEventArgs e)
+        {
+            if (!isAdmin) return;
+            HideAllViews();
+            PendingView.Visibility = Visibility.Visible;
+        }
+
+        private void BtnPaceCalc_Click(object sender, RoutedEventArgs e)
+        {
+            HideAllViews();
+            PaceCalcView.Visibility = Visibility.Visible;
+        }
+
+        private void BtnPointSystem_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show(
+                "🏆 POENGSYSTEM\n\n" +
+                "1. plass = 10 poeng\n" +
+                "2. plass = 6 poeng\n" +
+                "3. plass = 4 poeng\n" +
+                "4. plass = 3 poeng\n" +
+                "5. plass = 2 poeng\n" +
+                "6+ plass = 1 poeng\n\n" +
+                "For tidsbaserte øvelser: lavest tid = best\n" +
+                "For andre øvelser: høyest verdi = best",
+                "Poengsystem",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+
+        private void BtnSettings_Click(object sender, RoutedEventArgs e)
+        {
+            if (!isAdmin) return;
+            HideAllViews();
+            SettingsView.Visibility = Visibility.Visible;
+        }
+
         private void HideAllViews()
         {
             TopListView.Visibility = Visibility.Collapsed;
+            DepartmentsView.Visibility = Visibility.Collapsed;
             EmployeesView.Visibility = Visibility.Collapsed;
-            ExercisesView.Visibility = Visibility.Collapsed;
             ResultsView.Visibility = Visibility.Collapsed;
+            AchievementsView.Visibility = Visibility.Collapsed;
+            PendingView.Visibility = Visibility.Collapsed;
+            PaceCalcView.Visibility = Visibility.Collapsed;
+            SettingsView.Visibility = Visibility.Collapsed;
         }
 
         // Employee Management
-        private async void AddEmployee_Click(object sender, RoutedEventArgs e)
+        private void NewEmployeeName_KeyDown(object sender, KeyEventArgs e)
         {
-            await AddEmployeeAsync();
+            if (e.Key == Key.Enter)
+            {
+                DepartmentCombo.Focus();
+                e.Handled = true;
+            }
         }
 
-        private async Task AddEmployeeAsync()
+        private void DepartmentCombo_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                AddEmployee_Click(sender, e);
+                e.Handled = true;
+            }
+        }
+
+        private async void AddEmployee_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(NewEmployeeName.Text))
             {
-                MessageBox.Show("Vennligst fyll inn navn", "Feil", MessageBoxButton.OK, MessageBoxImage.Warning);
+                NewEmployeeName.Focus();
+                return;
+            }
+
+            if (DepartmentCombo.SelectedItem == null)
+            {
+                DepartmentCombo.Focus();
                 return;
             }
 
             var employee = new Employee
             {
-                Id = employees.Count > 0 ? employees.Max(e => e.Id) + 1 : 1,
+                Id = employees.Count > 0 ? employees.Max(emp => emp.Id) + 1 : 1,
                 Name = NewEmployeeName.Text,
-                Department = (DepartmentCombo.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Ukjent"
+                Department = (DepartmentCombo.SelectedItem as ComboBoxItem)?.Content.ToString()
             };
 
             await firebaseService.AddEmployeeAsync(employee);
@@ -395,32 +655,22 @@ namespace ABBsPrestasjonsportal
             NewEmployeeName.Focus();
         }
 
-        private void NewEmployeeName_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter)
-            {
-                _ = AddEmployeeAsync();
-            }
-        }
-
-        private void DepartmentCombo_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter)
-            {
-                _ = AddEmployeeAsync();
-            }
-        }
-
         private async void DeleteEmployee_Click(object sender, RoutedEventArgs e)
         {
+            if (!isAdmin)
+            {
+                MessageBox.Show("Kun admin kan slette brukere!", "Ingen tilgang",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             var button = sender as Button;
             if (button?.Tag is Employee employee)
             {
-                if (MessageBox.Show($"Er du sikker på at du vil slette {employee.Name}?", "Bekreft sletting",
+                if (MessageBox.Show($"Slett {employee.Name}?", "Bekreft",
                     MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
                 {
                     await firebaseService.DeleteEmployeeAsync(employee.FirebaseKey);
-                    employees.Remove(employee);
                 }
             }
         }
@@ -428,58 +678,81 @@ namespace ABBsPrestasjonsportal
         // Exercise Management
         private async void AddExercise_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(NewExerciseName.Text))
-            {
-                MessageBox.Show("Vennligst fyll inn øvelsesnavn", "Feil", MessageBoxButton.OK, MessageBoxImage.Warning);
+            if (string.IsNullOrWhiteSpace(NewExerciseName.Text) || ExerciseTypeCombo.SelectedItem == null)
                 return;
-            }
+
+            var type = (ExerciseTypeCombo.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Annet";
 
             var exercise = new Exercise
             {
                 Id = exercises.Count > 0 ? exercises.Max(ex => ex.Id) + 1 : 1,
                 Name = NewExerciseName.Text,
-                Type = (ExerciseTypeCombo.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Annet",
-                Unit = (ExerciseUnitCombo.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Poeng"
+                Type = type,
+                Unit = type
             };
 
             await firebaseService.AddExerciseAsync(exercise);
 
             NewExerciseName.Clear();
             ExerciseTypeCombo.SelectedIndex = -1;
-            ExerciseUnitCombo.SelectedIndex = -1;
         }
 
-        private async void DeleteExercise_Click(object sender, RoutedEventArgs e)
+        // Result Management
+        private void ResultExerciseCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            var button = sender as Button;
-            if (button?.Tag is Exercise exercise)
+            if (ResultExerciseCombo.SelectedItem is Exercise exercise)
             {
-                if (MessageBox.Show($"Er du sikker på at du vil slette {exercise.Name}?", "Bekreft sletting",
-                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                if (exercise.Type.Contains("Tid") || exercise.Type.Contains("Løping"))
                 {
-                    await firebaseService.DeleteExerciseAsync(exercise.FirebaseKey);
-                    exercises.Remove(exercise);
+                    ResultLabel.Text = "Resultat (TT:MM:SS)";
+                    ResultHintText.Text = "💡 Format: TT:MM:SS eller MM:SS";
+                }
+                else if (exercise.Type.Contains("Styrke"))
+                {
+                    ResultLabel.Text = "Resultat (kg)";
+                    ResultHintText.Text = "💡 Tall med eller uten desimaler";
+                }
+                else if (exercise.Type.Contains("Repetisjoner"))
+                {
+                    ResultLabel.Text = "Resultat (reps)";
+                    ResultHintText.Text = "💡 Antall repetisjoner";
+                }
+                else if (exercise.Type.Contains("Distanse"))
+                {
+                    ResultLabel.Text = "Resultat (m)";
+                    ResultHintText.Text = "💡 Distanse i meter";
+                }
+                else
+                {
+                    ResultLabel.Text = "Resultat";
+                    ResultHintText.Text = "";
                 }
             }
         }
 
-        // Result Management
+        private void ResultValue_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                AddResult_Click(sender, e);
+                e.Handled = true;
+            }
+        }
+
         private async void AddResult_Click(object sender, RoutedEventArgs e)
         {
             if (ResultEmployeeCombo.SelectedItem == null || ResultExerciseCombo.SelectedItem == null ||
                 string.IsNullOrWhiteSpace(ResultValue.Text))
-            {
-                MessageBox.Show("Vennligst fyll inn alle felt", "Feil", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
-            }
 
             var employee = ResultEmployeeCombo.SelectedItem as Employee;
             var exercise = ResultExerciseCombo.SelectedItem as Exercise;
 
-            // Calculate position and points
-            var exerciseResults = results.Where(r => r.ExerciseId == exercise.Id)
-                                         .OrderByDescending(r => GetResultScore(r, exercise))
-                                         .ToList();
+            if (!ValidateResultValue(ResultValue.Text, exercise.Type))
+            {
+                MessageBox.Show("Ugyldig format!", "Feil", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
             var result = new Result
             {
@@ -490,49 +763,93 @@ namespace ABBsPrestasjonsportal
                 ExerciseName = exercise.Name,
                 Value = ResultValue.Text,
                 Date = DateTime.Now,
+                Status = isAdmin ? "Approved" : "Pending",
                 Points = 0
             };
-
-            // Calculate what position this result would have
-            var tempScore = GetResultScore(result, exercise);
-            int position = 1;
-            foreach (var existingResult in exerciseResults)
-            {
-                if (GetResultScore(existingResult, exercise) > tempScore)
-                    position++;
-                else
-                    break;
-            }
-
-            result.Points = CalculatePoints(position, exerciseResults.Count + 1);
 
             await firebaseService.AddResultAsync(result);
 
             ResultEmployeeCombo.SelectedIndex = -1;
             ResultExerciseCombo.SelectedIndex = -1;
             ResultValue.Clear();
+            ResultHintText.Text = "";
         }
 
-        private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        private async void ApproveResult_Click(object sender, RoutedEventArgs e)
         {
-            var searchText = SearchBox.Text.ToLower();
-            if (string.IsNullOrWhiteSpace(searchText))
+            var button = sender as Button;
+            if (button?.Tag is Result result)
             {
-                EmployeesGrid.ItemsSource = employees;
+                result.Status = "Approved";
+                await firebaseService.UpdateResultAsync(result);
             }
-            else
+        }
+
+        private async void RejectResult_Click(object sender, RoutedEventArgs e)
+        {
+            var button = sender as Button;
+            if (button?.Tag is Result result)
             {
-                var filtered = employees.Where(emp =>
-                    emp.Name.ToLower().Contains(searchText) ||
-                    emp.Department.ToLower().Contains(searchText)).ToList();
-                EmployeesGrid.ItemsSource = filtered;
+                await firebaseService.DeleteResultAsync(result.FirebaseKey);
+            }
+        }
+
+        // Pace Calculator
+        private void PaceCalc_Changed(object sender, TextChangedEventArgs e)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(PaceDistance.Text) && !string.IsNullOrWhiteSpace(PaceTime.Text))
+                {
+                    double distance = double.Parse(PaceDistance.Text);
+                    var timeParts = PaceTime.Text.Split(':');
+                    double totalMinutes = 0;
+
+                    if (timeParts.Length == 3)
+                        totalMinutes = int.Parse(timeParts[0]) * 60 + int.Parse(timeParts[1]) + double.Parse(timeParts[2]) / 60.0;
+                    else if (timeParts.Length == 2)
+                        totalMinutes = int.Parse(timeParts[0]) + double.Parse(timeParts[1]) / 60.0;
+
+                    double paceMin = totalMinutes / distance;
+                    double speed = (distance / totalMinutes) * 60;
+
+                    int min = (int)paceMin;
+                    int sec = (int)((paceMin - min) * 60);
+
+                    PaceResult1.Text = $"Pace: {min}:{sec:D2} per km";
+                    PaceResult2.Text = $"Fart: {speed:F2} km/h";
+                    PaceResult3.Text = $"Total tid: {PaceTime.Text}";
+                }
+                else if (!string.IsNullOrWhiteSpace(PaceDistance.Text) && !string.IsNullOrWhiteSpace(PaceSpeed.Text))
+                {
+                    double distance = double.Parse(PaceDistance.Text);
+                    double speed = double.Parse(PaceSpeed.Text);
+
+                    double totalMinutes = (distance / speed) * 60;
+                    int hours = (int)(totalMinutes / 60);
+                    int min = (int)(totalMinutes % 60);
+                    int sec = (int)((totalMinutes - Math.Floor(totalMinutes)) * 60);
+
+                    PaceResult1.Text = $"Tid: {hours:D2}:{min:D2}:{sec:D2}";
+                    PaceResult2.Text = $"Pace: {60.0 / speed:F2} min/km";
+                    PaceResult3.Text = $"Fart: {speed} km/h";
+                }
+            }
+            catch { }
+        }
+
+        private void SaveSettings_Click(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(MinParticipantsBox.Text, out int value))
+            {
+                minParticipants = value;
+                UpdateDepartmentComparison();
             }
         }
 
         protected override void OnClosed(EventArgs e)
         {
             base.OnClosed(e);
-            // Clean up listeners
             employeeListener?.Dispose();
             exerciseListener?.Dispose();
             resultListener?.Dispose();
@@ -541,13 +858,45 @@ namespace ABBsPrestasjonsportal
         public event PropertyChangedEventHandler PropertyChanged;
     }
 
-    // Model class for TopList
+    // Model classes
     public class TopListEntry
     {
         public int Rank { get; set; }
         public string Name { get; set; }
         public string Department { get; set; }
-        public int ExerciseCount { get; set; }
+        public string Badges { get; set; }
         public int TotalPoints { get; set; }
+    }
+
+    public class DepartmentEntry
+    {
+        public int Rank { get; set; }
+        public string Department { get; set; }
+        public int ParticipantCount { get; set; }
+        public int TotalPoints { get; set; }
+        public double AvgPoints { get; set; }
+        public double ScorePercent { get; set; }
+    }
+
+    public class CombinedResultView
+    {
+        public int ResultId { get; set; }
+        public string FirebaseKey { get; set; }
+        public string ExerciseName { get; set; }
+        public string ExerciseType { get; set; }
+        public string EmployeeName { get; set; }
+        public string Value { get; set; }
+        public string Pace { get; set; }
+        public DateTime Date { get; set; }
+        public string Status { get; set; }
+        public int Points { get; set; }
+    }
+
+    public class Achievement
+    {
+        public string Icon { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public string Points { get; set; }
     }
 }
