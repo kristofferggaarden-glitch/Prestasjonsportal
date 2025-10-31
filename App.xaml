@@ -1,7 +1,7 @@
 <Application x:Class="ABBsPrestasjonsportal.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Startup="Application_Startup">
+             ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <!-- ABB Colors -->
         <Color x:Key="ABBRed">#FF000F</Color>

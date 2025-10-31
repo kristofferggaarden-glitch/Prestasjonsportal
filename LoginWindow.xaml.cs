@@ -5,8 +5,8 @@ namespace ABBsPrestasjonsportal
 {
     public partial class LoginWindow : Window
     {
-        public bool IsAdmin { get; private set; }
-        public string CurrentUser { get; private set; }
+        public bool IsAdmin { get; set; }
+        public string CurrentUser { get; set; }
 
         public LoginWindow()
         {
@@ -28,12 +28,11 @@ namespace ABBsPrestasjonsportal
             string password = PasswordBox.Password;
 
             // Kun admin trenger passord
-            if (username == "admin" && password == "admin123")
+            if (username.ToLower() == "admin" && password == "admin123")
             {
                 IsAdmin = true;
                 CurrentUser = "Administrator";
                 DialogResult = true;
-                Close();
             }
             else
             {
@@ -49,7 +48,6 @@ namespace ABBsPrestasjonsportal
             IsAdmin = false;
             CurrentUser = "Gjest";
             DialogResult = true;
-            Close();
         }
     }
 }

@@ -564,6 +564,10 @@ namespace ABBsPrestasjonsportal
             if (!isAdmin) return;
             HideAllViews();
             PendingView.Visibility = Visibility.Visible;
+
+            // Oppdater pending grid
+            PendingGrid.ItemsSource = null;
+            PendingGrid.ItemsSource = results.Where(r => r.Status == "Pending").ToList();
         }
 
         private void BtnPaceCalc_Click(object sender, RoutedEventArgs e)
@@ -650,6 +654,9 @@ namespace ABBsPrestasjonsportal
 
             await firebaseService.AddEmployeeAsync(employee);
 
+            // Oppdater UI umiddelbart
+            await ReloadAllDataAsync();
+
             NewEmployeeName.Clear();
             DepartmentCombo.SelectedIndex = -1;
             NewEmployeeName.Focus();
@@ -671,6 +678,9 @@ namespace ABBsPrestasjonsportal
                     MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
                 {
                     await firebaseService.DeleteEmployeeAsync(employee.FirebaseKey);
+
+                    // Oppdater UI umiddelbart
+                    await ReloadAllDataAsync();
                 }
             }
         }
@@ -678,6 +688,14 @@ namespace ABBsPrestasjonsportal
         // Exercise Management
         private async void AddExercise_Click(object sender, RoutedEventArgs e)
         {
+            // Kun admin kan legge til øvelser
+            if (!isAdmin)
+            {
+                MessageBox.Show("Kun admin kan legge til øvelser!", "Ingen tilgang",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(NewExerciseName.Text) || ExerciseTypeCombo.SelectedItem == null)
                 return;
 
@@ -693,6 +711,9 @@ namespace ABBsPrestasjonsportal
 
             await firebaseService.AddExerciseAsync(exercise);
 
+            // Oppdater UI umiddelbart
+            await ReloadAllDataAsync();
+
             NewExerciseName.Clear();
             ExerciseTypeCombo.SelectedIndex = -1;
         }
@@ -705,22 +726,22 @@ namespace ABBsPrestasjonsportal
                 if (exercise.Type.Contains("Tid") || exercise.Type.Contains("Løping"))
                 {
                     ResultLabel.Text = "Resultat (TT:MM:SS)";
-                    ResultHintText.Text = "💡 Format: TT:MM:SS eller MM:SS";
+                    ResultHintText.Text = "";
                 }
                 else if (exercise.Type.Contains("Styrke"))
                 {
                     ResultLabel.Text = "Resultat (kg)";
-                    ResultHintText.Text = "💡 Tall med eller uten desimaler";
+                    ResultHintText.Text = "";
                 }
                 else if (exercise.Type.Contains("Repetisjoner"))
                 {
                     ResultLabel.Text = "Resultat (reps)";
-                    ResultHintText.Text = "💡 Antall repetisjoner";
+                    ResultHintText.Text = "";
                 }
                 else if (exercise.Type.Contains("Distanse"))
                 {
                     ResultLabel.Text = "Resultat (m)";
-                    ResultHintText.Text = "💡 Distanse i meter";
+                    ResultHintText.Text = "";
                 }
                 else
                 {
@@ -769,6 +790,16 @@ namespace ABBsPrestasjonsportal
 
             await firebaseService.AddResultAsync(result);
 
+            // Oppdater UI umiddelbart
+            await ReloadAllDataAsync();
+
+            // Vis melding til gjest
+            if (!isAdmin)
+            {
+                MessageBox.Show("Resultatet ditt er sendt til godkjenning!", "Suksess",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+
             ResultEmployeeCombo.SelectedIndex = -1;
             ResultExerciseCombo.SelectedIndex = -1;
             ResultValue.Clear();
@@ -782,15 +813,33 @@ namespace ABBsPrestasjonsportal
             {
                 result.Status = "Approved";
                 await firebaseService.UpdateResultAsync(result);
+
+                // Oppdater UI umiddelbart
+                await ReloadAllDataAsync();
+
+                MessageBox.Show("Resultat godkjent!", "Suksess",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
         private async void RejectResult_Click(object sender, RoutedEventArgs e)
         {
+            if (!isAdmin) return;
+
             var button = sender as Button;
             if (button?.Tag is Result result)
             {
-                await firebaseService.DeleteResultAsync(result.FirebaseKey);
+                if (MessageBox.Show("Er du sikker på at du vil avslå dette resultatet?", "Bekreft",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                {
+                    await firebaseService.DeleteResultAsync(result.FirebaseKey);
+
+                    // Oppdater UI umiddelbart
+                    await ReloadAllDataAsync();
+
+                    MessageBox.Show("Resultat avslått og slettet!", "Suksess",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                }
             }
         }
 

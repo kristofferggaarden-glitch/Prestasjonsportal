@@ -1,25 +1,36 @@
+using System;
 using System.Windows;
 
 namespace ABBsPrestasjonsportal
 {
     public partial class App : Application
     {
-        private void Application_Startup(object sender, StartupEventArgs e)
+        protected override void OnStartup(StartupEventArgs e)
         {
+            base.OnStartup(e);
+
             // Vis login-vinduet
             LoginWindow loginWindow = new LoginWindow();
-            bool? result = loginWindow.ShowDialog();
+            bool? dialogResult = loginWindow.ShowDialog();
 
-            if (result == true)
+            if (dialogResult == true)
             {
                 // Bruker logget inn, vis hovedvinduet
                 MainWindow mainWindow = new MainWindow(loginWindow.IsAdmin, loginWindow.CurrentUser);
+
+                // Sett MainWindow som hovedvindu
+                this.MainWindow = mainWindow;
+
+                // Endre shutdown mode slik at applikasjonen lukkes når MainWindow lukkes
+                this.ShutdownMode = ShutdownMode.OnMainWindowClose;
+
+                // Vis vinduet
                 mainWindow.Show();
             }
             else
             {
-                // Bruker avbrøt, lukk applikasjonen
-                Application.Current.Shutdown();
+                // Bruker avbrøt - lukk applikasjonen
+                this.Shutdown();
             }
         }
     }
