@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Data;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -20,6 +21,9 @@ namespace ABBsPrestasjonsportal
         private ObservableCollection<Exercise> exercises = new ObservableCollection<Exercise>();
         private ObservableCollection<Result> results = new ObservableCollection<Result>();
         private ObservableCollection<CombinedResultView> combinedResults = new ObservableCollection<CombinedResultView>();
+        private List<TopListEntry> fullTopList = new List<TopListEntry>();
+        private DataTable displayModeData = new DataTable();
+
         private FirebaseService firebaseService;
         private DispatcherTimer timer;
         private IDisposable employeeListener;
@@ -129,6 +133,7 @@ namespace ABBsPrestasjonsportal
                 UpdateDepartmentComparison();
                 UpdatePendingCount();
                 LoadAchievements();
+                UpdateDisplayMode();
             });
         }
 
@@ -278,35 +283,46 @@ namespace ABBsPrestasjonsportal
         {
             try
             {
-                // Extract distance from exercise name if possible
+                // Extract distance from exercise name
                 var match = Regex.Match(exerciseName, @"(\d+)");
                 if (!match.Success) return "";
 
                 double distanceMeters = double.Parse(match.Value);
+
+                // Check if it's in km or meters
                 if (exerciseName.ToLower().Contains("km"))
                     distanceMeters *= 1000;
 
                 double distanceKm = distanceMeters / 1000.0;
 
-                // Parse time
+                // Parse time (format: HH:MM:SS or MM:SS)
                 var parts = timeString.Split(':');
-                double totalMinutes = 0;
+                double totalSeconds = 0;
 
                 if (parts.Length == 3)
                 {
-                    totalMinutes = int.Parse(parts[0]) * 60 + int.Parse(parts[1]) + double.Parse(parts[2]) / 60.0;
+                    int hours = int.Parse(parts[0]);
+                    int minutes = int.Parse(parts[1]);
+                    int seconds = int.Parse(parts[2]);
+                    totalSeconds = hours * 3600 + minutes * 60 + seconds;
                 }
                 else if (parts.Length == 2)
                 {
-                    totalMinutes = int.Parse(parts[0]) + double.Parse(parts[1]) / 60.0;
+                    int minutes = int.Parse(parts[0]);
+                    int seconds = int.Parse(parts[1]);
+                    totalSeconds = minutes * 60 + seconds;
                 }
 
-                if (distanceKm > 0)
+                if (distanceKm > 0 && totalSeconds > 0)
                 {
-                    double paceMinPerKm = totalMinutes / distanceKm;
-                    int min = (int)paceMinPerKm;
-                    int sec = (int)((paceMinPerKm - min) * 60);
-                    return $"{min}:{sec:D2}/km";
+                    // Calculate pace in seconds per km
+                    double paceSecondsPerKm = totalSeconds / distanceKm;
+
+                    // Convert to minutes and seconds
+                    int paceMinutes = (int)(paceSecondsPerKm / 60);
+                    int paceSeconds = (int)(paceSecondsPerKm % 60);
+
+                    return $"{paceMinutes}:{paceSeconds:D2}/km";
                 }
             }
             catch { }
@@ -316,23 +332,23 @@ namespace ABBsPrestasjonsportal
 
         private void ShowTopList()
         {
-            var topList = CalculateTopList();
-            TopListGrid.ItemsSource = topList;
+            fullTopList = CalculateTopList();
+            TopListGrid.ItemsSource = fullTopList;
 
-            if (topList.Count > 0)
+            if (fullTopList.Count > 0)
             {
-                Gold_Name.Text = topList[0].Name;
-                Gold_Points.Text = $"{topList[0].TotalPoints} poeng";
+                Gold_Name.Text = fullTopList[0].Name;
+                Gold_Points.Text = $"{fullTopList[0].TotalPoints} poeng";
             }
-            if (topList.Count > 1)
+            if (fullTopList.Count > 1)
             {
-                Silver_Name.Text = topList[1].Name;
-                Silver_Points.Text = $"{topList[1].TotalPoints} poeng";
+                Silver_Name.Text = fullTopList[1].Name;
+                Silver_Points.Text = $"{fullTopList[1].TotalPoints} poeng";
             }
-            if (topList.Count > 2)
+            if (fullTopList.Count > 2)
             {
-                Bronze_Name.Text = topList[2].Name;
-                Bronze_Points.Text = $"{topList[2].TotalPoints} poeng";
+                Bronze_Name.Text = fullTopList[2].Name;
+                Bronze_Points.Text = $"{fullTopList[2].TotalPoints} poeng";
             }
         }
 
@@ -384,6 +400,87 @@ namespace ABBsPrestasjonsportal
             return topList;
         }
 
+        private void UpdateDisplayMode()
+        {
+            displayModeData = new DataTable();
+            displayModeData.Columns.Add("Navn", typeof(string));
+
+            // Add a column for each exercise
+            foreach (var exercise in exercises.OrderBy(e => e.Name))
+            {
+                displayModeData.Columns.Add(exercise.Name, typeof(string));
+            }
+
+            // Add rows for each employee
+            foreach (var employee in employees.OrderBy(e => e.Name))
+            {
+                var row = displayModeData.NewRow();
+                row["Navn"] = employee.Name;
+
+                foreach (var exercise in exercises.OrderBy(e => e.Name))
+                {
+                    // Find the best result for this employee and exercise
+                    var bestResult = results
+                        .Where(r => r.EmployeeId == employee.Id && r.ExerciseId == exercise.Id && r.Status == "Approved")
+                        .OrderByDescending(r => GetResultScore(r, exercise))
+                        .FirstOrDefault();
+
+                    if (bestResult != null)
+                    {
+                        row[exercise.Name] = bestResult.Value;
+                    }
+                    else
+                    {
+                        row[exercise.Name] = "-";
+                    }
+                }
+
+                displayModeData.Rows.Add(row);
+            }
+
+            DisplayModeGrid.ItemsSource = displayModeData.DefaultView;
+
+            // Style the grid to show best results in green
+            DisplayModeGrid.LoadingRow += DisplayModeGrid_LoadingRow;
+        }
+
+        private void DisplayModeGrid_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            // This will be called for each row - we'll style cells in the CellEditEnding event
+            e.Row.Loaded += (s, args) =>
+            {
+                foreach (var column in DisplayModeGrid.Columns.Skip(1)) // Skip "Navn" column
+                {
+                    var cell = column.GetCellContent(e.Row)?.Parent as DataGridCell;
+                    if (cell != null)
+                    {
+                        var columnHeader = column.Header.ToString();
+                        var exercise = exercises.FirstOrDefault(ex => ex.Name == columnHeader);
+
+                        if (exercise != null)
+                        {
+                            var cellValue = (e.Row.Item as DataRowView)?[columnHeader]?.ToString();
+
+                            if (cellValue != null && cellValue != "-")
+                            {
+                                // Check if this is the best result for this exercise
+                                var allResultsForExercise = results
+                                    .Where(r => r.ExerciseId == exercise.Id && r.Status == "Approved")
+                                    .OrderByDescending(r => GetResultScore(r, exercise))
+                                    .ToList();
+
+                                if (allResultsForExercise.Any() && allResultsForExercise.First().Value == cellValue)
+                                {
+                                    cell.Foreground = Brushes.Green;
+                                    cell.FontWeight = FontWeights.Bold;
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+        }
+
         private void UpdateDepartmentComparison()
         {
             var departments = employees.GroupBy(e => e.Department)
@@ -411,7 +508,9 @@ namespace ABBsPrestasjonsportal
         {
             if (exercise.Type.Contains("Tid") || exercise.Type.Contains("Løping"))
             {
-                return 10000.0 / ParseTime(result.Value);
+                // For time-based exercises, lower is better, so we invert the score
+                double timeInSeconds = ParseTime(result.Value);
+                return timeInSeconds > 0 ? 10000.0 / timeInSeconds : 0;
             }
             else
             {
@@ -464,7 +563,7 @@ namespace ABBsPrestasjonsportal
 
             if (exerciseType.Contains("Tid") || exerciseType.Contains("Løping"))
             {
-                var timeRegex = new Regex(@"^(\d{1,2}):([0-5][0-9]):([0-5][0-9])$");
+                var timeRegex = new Regex(@"^(\d{1,2}):([0-5][0-9]):([0-5][0-9])$|^([0-5]?[0-9]):([0-5][0-9])$");
                 return timeRegex.IsMatch(value);
             }
             else if (exerciseType.Contains("Styrke") || exerciseType.Contains("Repetisjoner") || exerciseType.Contains("Distanse"))
@@ -524,12 +623,53 @@ namespace ABBsPrestasjonsportal
             }
         }
 
+        // Search functionality
+        private void TopListSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string searchText = TopListSearchBox.Text.ToLower();
+
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                TopListGrid.ItemsSource = fullTopList;
+            }
+            else
+            {
+                var filtered = fullTopList.Where(t =>
+                    t.Name.ToLower().Contains(searchText) ||
+                    t.Department.ToLower().Contains(searchText)).ToList();
+                TopListGrid.ItemsSource = filtered;
+            }
+        }
+
+        private void DisplayModeSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            string searchText = DisplayModeSearchBox.Text.ToLower();
+
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                DisplayModeGrid.ItemsSource = displayModeData.DefaultView;
+            }
+            else
+            {
+                var filteredView = displayModeData.DefaultView;
+                filteredView.RowFilter = $"Navn LIKE '%{searchText}%'";
+                DisplayModeGrid.ItemsSource = filteredView;
+            }
+        }
+
         // Navigation
         private void BtnTopList_Click(object sender, RoutedEventArgs e)
         {
             HideAllViews();
             TopListView.Visibility = Visibility.Visible;
             ShowTopList();
+        }
+
+        private void BtnDisplayMode_Click(object sender, RoutedEventArgs e)
+        {
+            HideAllViews();
+            DisplayModeView.Visibility = Visibility.Visible;
+            UpdateDisplayMode();
         }
 
         private void BtnDepartments_Click(object sender, RoutedEventArgs e)
@@ -564,10 +704,6 @@ namespace ABBsPrestasjonsportal
             if (!isAdmin) return;
             HideAllViews();
             PendingView.Visibility = Visibility.Visible;
-
-            // Oppdater pending grid
-            PendingGrid.ItemsSource = null;
-            PendingGrid.ItemsSource = results.Where(r => r.Status == "Pending").ToList();
         }
 
         private void BtnPaceCalc_Click(object sender, RoutedEventArgs e)
@@ -600,9 +736,36 @@ namespace ABBsPrestasjonsportal
             SettingsView.Visibility = Visibility.Visible;
         }
 
+        private void BtnLogout_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show("Er du sikker på at du vil logge ut?", "Bekreft utlogging",
+                MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                // Dispose listeners
+                employeeListener?.Dispose();
+                exerciseListener?.Dispose();
+                resultListener?.Dispose();
+
+                // Show login window
+                var loginWindow = new LoginWindow();
+                if (loginWindow.ShowDialog() == true)
+                {
+                    // Create new main window with new credentials
+                    var newMainWindow = new MainWindow(loginWindow.IsAdmin, loginWindow.CurrentUser);
+                    newMainWindow.Show();
+                }
+
+                // Close current window
+                this.Close();
+            }
+        }
+
         private void HideAllViews()
         {
             TopListView.Visibility = Visibility.Collapsed;
+            DisplayModeView.Visibility = Visibility.Collapsed;
             DepartmentsView.Visibility = Visibility.Collapsed;
             EmployeesView.Visibility = Visibility.Collapsed;
             ResultsView.Visibility = Visibility.Collapsed;
@@ -654,9 +817,6 @@ namespace ABBsPrestasjonsportal
 
             await firebaseService.AddEmployeeAsync(employee);
 
-            // Oppdater UI umiddelbart
-            await ReloadAllDataAsync();
-
             NewEmployeeName.Clear();
             DepartmentCombo.SelectedIndex = -1;
             NewEmployeeName.Focus();
@@ -678,9 +838,6 @@ namespace ABBsPrestasjonsportal
                     MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
                 {
                     await firebaseService.DeleteEmployeeAsync(employee.FirebaseKey);
-
-                    // Oppdater UI umiddelbart
-                    await ReloadAllDataAsync();
                 }
             }
         }
@@ -688,14 +845,6 @@ namespace ABBsPrestasjonsportal
         // Exercise Management
         private async void AddExercise_Click(object sender, RoutedEventArgs e)
         {
-            // Kun admin kan legge til øvelser
-            if (!isAdmin)
-            {
-                MessageBox.Show("Kun admin kan legge til øvelser!", "Ingen tilgang",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
-            }
-
             if (string.IsNullOrWhiteSpace(NewExerciseName.Text) || ExerciseTypeCombo.SelectedItem == null)
                 return;
 
@@ -711,9 +860,6 @@ namespace ABBsPrestasjonsportal
 
             await firebaseService.AddExerciseAsync(exercise);
 
-            // Oppdater UI umiddelbart
-            await ReloadAllDataAsync();
-
             NewExerciseName.Clear();
             ExerciseTypeCombo.SelectedIndex = -1;
         }
@@ -726,22 +872,22 @@ namespace ABBsPrestasjonsportal
                 if (exercise.Type.Contains("Tid") || exercise.Type.Contains("Løping"))
                 {
                     ResultLabel.Text = "Resultat (TT:MM:SS)";
-                    ResultHintText.Text = "";
+                    ResultHintText.Text = "💡 Format: TT:MM:SS eller MM:SS";
                 }
                 else if (exercise.Type.Contains("Styrke"))
                 {
                     ResultLabel.Text = "Resultat (kg)";
-                    ResultHintText.Text = "";
+                    ResultHintText.Text = "💡 Tall med eller uten desimaler";
                 }
                 else if (exercise.Type.Contains("Repetisjoner"))
                 {
                     ResultLabel.Text = "Resultat (reps)";
-                    ResultHintText.Text = "";
+                    ResultHintText.Text = "💡 Antall repetisjoner";
                 }
                 else if (exercise.Type.Contains("Distanse"))
                 {
                     ResultLabel.Text = "Resultat (m)";
-                    ResultHintText.Text = "";
+                    ResultHintText.Text = "💡 Distanse i meter";
                 }
                 else
                 {
@@ -762,11 +908,28 @@ namespace ABBsPrestasjonsportal
 
         private async void AddResult_Click(object sender, RoutedEventArgs e)
         {
-            if (ResultEmployeeCombo.SelectedItem == null || ResultExerciseCombo.SelectedItem == null ||
-                string.IsNullOrWhiteSpace(ResultValue.Text))
-                return;
+            // Handle both selected item and typed text
+            Employee employee = null;
 
-            var employee = ResultEmployeeCombo.SelectedItem as Employee;
+            if (ResultEmployeeCombo.SelectedItem != null)
+            {
+                employee = ResultEmployeeCombo.SelectedItem as Employee;
+            }
+            else if (!string.IsNullOrWhiteSpace(ResultEmployeeCombo.Text))
+            {
+                // Try to find employee by typed name
+                employee = employees.FirstOrDefault(emp =>
+                    emp.Name.Equals(ResultEmployeeCombo.Text, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (employee == null || ResultExerciseCombo.SelectedItem == null ||
+                string.IsNullOrWhiteSpace(ResultValue.Text))
+            {
+                MessageBox.Show("Vennligst fyll ut alle feltene!", "Feil",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
             var exercise = ResultExerciseCombo.SelectedItem as Exercise;
 
             if (!ValidateResultValue(ResultValue.Text, exercise.Type))
@@ -790,17 +953,8 @@ namespace ABBsPrestasjonsportal
 
             await firebaseService.AddResultAsync(result);
 
-            // Oppdater UI umiddelbart
-            await ReloadAllDataAsync();
-
-            // Vis melding til gjest
-            if (!isAdmin)
-            {
-                MessageBox.Show("Resultatet ditt er sendt til godkjenning!", "Suksess",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-            }
-
             ResultEmployeeCombo.SelectedIndex = -1;
+            ResultEmployeeCombo.Text = "";
             ResultExerciseCombo.SelectedIndex = -1;
             ResultValue.Clear();
             ResultHintText.Text = "";
@@ -813,33 +967,15 @@ namespace ABBsPrestasjonsportal
             {
                 result.Status = "Approved";
                 await firebaseService.UpdateResultAsync(result);
-
-                // Oppdater UI umiddelbart
-                await ReloadAllDataAsync();
-
-                MessageBox.Show("Resultat godkjent!", "Suksess",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
         private async void RejectResult_Click(object sender, RoutedEventArgs e)
         {
-            if (!isAdmin) return;
-
             var button = sender as Button;
             if (button?.Tag is Result result)
             {
-                if (MessageBox.Show("Er du sikker på at du vil avslå dette resultatet?", "Bekreft",
-                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-                {
-                    await firebaseService.DeleteResultAsync(result.FirebaseKey);
-
-                    // Oppdater UI umiddelbart
-                    await ReloadAllDataAsync();
-
-                    MessageBox.Show("Resultat avslått og slettet!", "Suksess",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
-                }
+                await firebaseService.DeleteResultAsync(result.FirebaseKey);
             }
         }
 
@@ -850,38 +986,60 @@ namespace ABBsPrestasjonsportal
             {
                 if (!string.IsNullOrWhiteSpace(PaceDistance.Text) && !string.IsNullOrWhiteSpace(PaceTime.Text))
                 {
-                    double distance = double.Parse(PaceDistance.Text);
+                    double distance = double.Parse(PaceDistance.Text.Replace(',', '.'));
                     var timeParts = PaceTime.Text.Split(':');
-                    double totalMinutes = 0;
+                    double totalSeconds = 0;
 
                     if (timeParts.Length == 3)
-                        totalMinutes = int.Parse(timeParts[0]) * 60 + int.Parse(timeParts[1]) + double.Parse(timeParts[2]) / 60.0;
+                    {
+                        int hours = int.Parse(timeParts[0]);
+                        int minutes = int.Parse(timeParts[1]);
+                        int seconds = int.Parse(timeParts[2]);
+                        totalSeconds = hours * 3600 + minutes * 60 + seconds;
+                    }
                     else if (timeParts.Length == 2)
-                        totalMinutes = int.Parse(timeParts[0]) + double.Parse(timeParts[1]) / 60.0;
+                    {
+                        int minutes = int.Parse(timeParts[0]);
+                        int seconds = int.Parse(timeParts[1]);
+                        totalSeconds = minutes * 60 + seconds;
+                    }
 
-                    double paceMin = totalMinutes / distance;
-                    double speed = (distance / totalMinutes) * 60;
+                    if (distance > 0 && totalSeconds > 0)
+                    {
+                        // Calculate pace (seconds per km)
+                        double paceSecondsPerKm = totalSeconds / distance;
+                        int paceMin = (int)(paceSecondsPerKm / 60);
+                        int paceSec = (int)(paceSecondsPerKm % 60);
 
-                    int min = (int)paceMin;
-                    int sec = (int)((paceMin - min) * 60);
+                        // Calculate speed (km/h)
+                        double speed = (distance / totalSeconds) * 3600;
 
-                    PaceResult1.Text = $"Pace: {min}:{sec:D2} per km";
-                    PaceResult2.Text = $"Fart: {speed:F2} km/h";
-                    PaceResult3.Text = $"Total tid: {PaceTime.Text}";
+                        PaceResult1.Text = $"Pace: {paceMin}:{paceSec:D2} per km";
+                        PaceResult2.Text = $"Fart: {speed:F2} km/h";
+                        PaceResult3.Text = $"Total tid: {PaceTime.Text}";
+                    }
                 }
                 else if (!string.IsNullOrWhiteSpace(PaceDistance.Text) && !string.IsNullOrWhiteSpace(PaceSpeed.Text))
                 {
-                    double distance = double.Parse(PaceDistance.Text);
-                    double speed = double.Parse(PaceSpeed.Text);
+                    double distance = double.Parse(PaceDistance.Text.Replace(',', '.'));
+                    double speed = double.Parse(PaceSpeed.Text.Replace(',', '.'));
 
-                    double totalMinutes = (distance / speed) * 60;
-                    int hours = (int)(totalMinutes / 60);
-                    int min = (int)(totalMinutes % 60);
-                    int sec = (int)((totalMinutes - Math.Floor(totalMinutes)) * 60);
+                    if (distance > 0 && speed > 0)
+                    {
+                        double totalHours = distance / speed;
+                        int hours = (int)totalHours;
+                        int minutes = (int)((totalHours - hours) * 60);
+                        int seconds = (int)(((totalHours - hours) * 60 - minutes) * 60);
 
-                    PaceResult1.Text = $"Tid: {hours:D2}:{min:D2}:{sec:D2}";
-                    PaceResult2.Text = $"Pace: {60.0 / speed:F2} min/km";
-                    PaceResult3.Text = $"Fart: {speed} km/h";
+                        // Calculate pace
+                        double paceMinPerKm = 60.0 / speed;
+                        int paceMin = (int)paceMinPerKm;
+                        int paceSec = (int)((paceMinPerKm - paceMin) * 60);
+
+                        PaceResult1.Text = $"Tid: {hours:D2}:{minutes:D2}:{seconds:D2}";
+                        PaceResult2.Text = $"Pace: {paceMin}:{paceSec:D2} per km";
+                        PaceResult3.Text = $"Fart: {speed:F2} km/h";
+                    }
                 }
             }
             catch { }
@@ -893,6 +1051,8 @@ namespace ABBsPrestasjonsportal
             {
                 minParticipants = value;
                 UpdateDepartmentComparison();
+                MessageBox.Show("Innstillinger lagret!", "Suksess",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 

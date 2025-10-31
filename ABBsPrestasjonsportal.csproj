@@ -1,18 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net6.0-windows</TargetFramework>
-    <UseWPF>true</UseWPF>
-    <ApplicationIcon>app.ico</ApplicationIcon>
-    <AssemblyName>ABBsPrestasjonsportal</AssemblyName>
-    <RootNamespace>ABBsPrestasjonsportal</RootNamespace>
-  </PropertyGroup>
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<TargetFramework>net6.0-windows</TargetFramework>
+		<UseWPF>true</UseWPF>
+		<ApplicationIcon>app.ico</ApplicationIcon>
+		<AssemblyName>ABBsPrestasjonsportal</AssemblyName>
+		<RootNamespace>ABBsPrestasjonsportal</RootNamespace>
 
-  <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="7.0.0" />
-    <PackageReference Include="FirebaseDatabase.net" Version="4.2.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-  </ItemGroup>
+		<!-- Self-contained deployment settings -->
+		<PublishSingleFile>true</PublishSingleFile>
+		<SelfContained>true</SelfContained>
+		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+		<PublishTrimmed>false</PublishTrimmed>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="System.Text.Json" Version="7.0.0" />
+		<PackageReference Include="FirebaseDatabase.net" Version="4.2.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+	</ItemGroup>
 
 </Project>

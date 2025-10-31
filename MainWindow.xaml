@@ -43,6 +43,37 @@
                 <StackPanel Grid.Column="2" Orientation="Vertical" VerticalAlignment="Center" Margin="20,0">
                     <TextBlock x:Name="UserText" Foreground="White" FontSize="12" HorizontalAlignment="Right"/>
                     <TextBlock x:Name="DateTimeText" Foreground="White" FontSize="14" HorizontalAlignment="Right"/>
+                    <Button x:Name="BtnLogout" Content="🚪 Logg ut" 
+                            Click="BtnLogout_Click"
+                            Background="#FF6B6B"
+                            Foreground="White"
+                            BorderThickness="0"
+                            Padding="10,5"
+                            Margin="0,5,0,0"
+                            FontSize="11"
+                            Cursor="Hand"
+                            HorizontalAlignment="Right">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" 
+                                                   CornerRadius="3"
+                                                   Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Opacity" Value="0.8"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
@@ -65,6 +96,11 @@
                             Style="{StaticResource ModernButton}" 
                             Background="{StaticResource ABBRedBrush}"
                             Margin="0,5" Click="BtnTopList_Click"/>
+
+                    <Button x:Name="BtnDisplayMode" Content="📊 Visningsmodus" 
+                            Style="{StaticResource ModernButton}"
+                            Background="{StaticResource ABBPurpleBrush}"
+                            Margin="0,5" Click="BtnDisplayMode_Click"/>
 
                     <Button x:Name="BtnDepartments" Content="🏢 Avdelinger" 
                             Style="{StaticResource ModernButton}"
@@ -205,12 +241,37 @@
                             <Grid>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Text="Full Rangering" FontWeight="Bold" Margin="0,0,0,10"/>
 
-                                <DataGrid Grid.Row="1" x:Name="TopListGrid" 
+                                <TextBox Grid.Row="1" x:Name="TopListSearchBox" 
+                                        Padding="8" Margin="0,0,0,10"
+                                        TextChanged="TopListSearchBox_TextChanged">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox">
+                                            <Setter Property="Foreground" Value="Black"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="Text" Value="">
+                                                    <Setter Property="Background">
+                                                        <Setter.Value>
+                                                            <VisualBrush Stretch="None" AlignmentX="Left">
+                                                                <VisualBrush.Visual>
+                                                                    <TextBlock Text="🔍 Søk etter navn eller avdeling..." 
+                                                                              Foreground="Gray" Margin="5,0,0,0"/>
+                                                                </VisualBrush.Visual>
+                                                            </VisualBrush>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
+
+                                <DataGrid Grid.Row="2" x:Name="TopListGrid" 
                                          AutoGenerateColumns="False" 
                                          CanUserAddRows="False"
                                          GridLinesVisibility="None"
@@ -229,6 +290,55 @@
                                         </DataGridTextColumn>
                                     </DataGrid.Columns>
                                 </DataGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Display Mode View (NEW) -->
+                    <Grid x:Name="DisplayModeView" Visibility="Collapsed">
+                        <Border Style="{StaticResource Card}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0" Text="📊 Visningsmodus - Øvelser og Resultater" 
+                                          Style="{StaticResource SubHeaderText}" Margin="0,0,0,20"/>
+
+                                <TextBox Grid.Row="1" x:Name="DisplayModeSearchBox" 
+                                        Padding="8" Margin="0,0,0,10"
+                                        TextChanged="DisplayModeSearchBox_TextChanged">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox">
+                                            <Setter Property="Foreground" Value="Black"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="Text" Value="">
+                                                    <Setter Property="Background">
+                                                        <Setter.Value>
+                                                            <VisualBrush Stretch="None" AlignmentX="Left">
+                                                                <VisualBrush.Visual>
+                                                                    <TextBlock Text="🔍 Søk etter navn..." 
+                                                                              Foreground="Gray" Margin="5,0,0,0"/>
+                                                                </VisualBrush.Visual>
+                                                            </VisualBrush>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
+
+                                <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                                    <DataGrid x:Name="DisplayModeGrid" 
+                                             AutoGenerateColumns="True"
+                                             CanUserAddRows="False"
+                                             IsReadOnly="True"
+                                             GridLinesVisibility="All"
+                                             HeadersVisibility="All"/>
+                                </ScrollViewer>
                             </Grid>
                         </Border>
                     </Grid>
@@ -413,7 +523,9 @@
                                     <TextBlock Grid.Row="0" Grid.Column="2" x:Name="ResultLabel" Text="Resultat" FontWeight="SemiBold" Margin="0,0,5,5"/>
 
                                     <ComboBox x:Name="ResultEmployeeCombo" Grid.Row="1" Grid.Column="0" 
-                                             Margin="0,0,5,0" Padding="5"/>
+                                             Margin="0,0,5,0" Padding="5"
+                                             IsEditable="True"
+                                             IsTextSearchEnabled="True"/>
                                     <ComboBox x:Name="ResultExerciseCombo" Grid.Row="1" Grid.Column="1" 
                                              Margin="0,0,5,0" Padding="5"
                                              SelectionChanged="ResultExerciseCombo_SelectionChanged"/>
