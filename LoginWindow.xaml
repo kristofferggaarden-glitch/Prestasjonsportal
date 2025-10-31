@@ -2,15 +2,15 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="ABBs Prestasjonsportal - Innlogging" 
-        Height="588" Width="500"
+        Height="620" Width="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize"
         Background="#F5F5F5">
 
-    <Grid Margin="0,0,0,-190">
+    <Grid>
         <Border Background="White" 
                 CornerRadius="10" 
-                Margin="50,50,50,223"
+                Margin="50,50,50,50"
                 Padding="40">
             <Border.Effect>
                 <DropShadowEffect Color="Gray" Direction="315" ShadowDepth="5" Opacity="0.3" BlurRadius="10"/>
@@ -55,9 +55,42 @@
                           Margin="0,0,0,10"
                           TextWrapping="Wrap"/>
 
-                <Button Content="Logg inn" 
+                <Button Content="Logg inn som Admin" 
                        Click="LoginButton_Click"
                        Background="#6764F6"
+                       Foreground="White"
+                       Padding="15,10"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       BorderThickness="0"
+                       Cursor="Hand"
+                       Margin="0,0,0,10">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" 
+                                               CornerRadius="5"
+                                               Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" 
+                                                            VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Opacity" Value="0.9"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+
+                <Button Content="👤 Fortsett som gjest" 
+                       Click="GuestButton_Click"
+                       Background="#007A33"
                        Foreground="White"
                        Padding="15,10"
                        FontSize="14"
@@ -87,16 +120,15 @@
                     </Button.Style>
                 </Button>
 
-                <TextBlock Text="Standard bruker: bruker / passord123" 
+                <TextBlock Text="Admin-innlogging: admin / admin123" 
                           FontSize="11" 
                           Foreground="Gray"
                           TextAlignment="Center"
-                          Margin="0,20,0,0"/>
-                <TextBlock Text="Admin: admin / admin123" 
+                          Margin="0,20,0,5"/>
+                <TextBlock Text="Eller bruk gjest-modus uten passord" 
                           FontSize="11" 
                           Foreground="Gray"
-                          TextAlignment="Center"
-                          Margin="0,5,0,0"/>
+                          TextAlignment="Center"/>
             </StackPanel>
         </Border>
     </Grid>

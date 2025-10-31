@@ -27,7 +27,7 @@ namespace ABBsPrestasjonsportal
             string username = UsernameBox.Text.Trim();
             string password = PasswordBox.Password;
 
-            // Hardkodede brukere (kan utvides til database senere)
+            // Kun admin trenger passord
             if (username == "admin" && password == "admin123")
             {
                 IsAdmin = true;
@@ -35,19 +35,21 @@ namespace ABBsPrestasjonsportal
                 DialogResult = true;
                 Close();
             }
-            else if (username == "bruker" && password == "passord123")
-            {
-                IsAdmin = false;
-                CurrentUser = username;
-                DialogResult = true;
-                Close();
-            }
             else
             {
-                ErrorText.Text = "Feil brukernavn eller passord!";
+                ErrorText.Text = "Feil brukernavn eller passord!\nBruk 'admin' / 'admin123' eller logg inn som gjest.";
                 PasswordBox.Clear();
                 PasswordBox.Focus();
             }
+        }
+
+        private void GuestButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Gjest-innlogging krever ikke passord
+            IsAdmin = false;
+            CurrentUser = "Gjest";
+            DialogResult = true;
+            Close();
         }
     }
 }
